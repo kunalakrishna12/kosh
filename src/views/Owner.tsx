@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowLeftRight, ArrowRight, Briefcase, User } from 'lucide-react';
 import { useMemo } from 'react';
 import { Bars } from '../components/charts';
-import { activityOf, ActivityRow } from '../components/rows';
+import { activityKey, activityOf, ActivityRow } from '../components/rows';
 import { Empty } from '../components/ui';
 import { balances } from '../lib/analytics';
 import { lastMonths, monthKey, monthLabel } from '../lib/dates';
@@ -167,7 +167,7 @@ export function Owner() {
         {rows.length ? (
           <div className="list">
             {rows.map((a) => (
-              <ActivityRow key={a.kind === 'tx' ? a.tx.id : a.tr.id} a={a} />
+              <ActivityRow key={activityKey(a)} a={a} />
             ))}
           </div>
         ) : (

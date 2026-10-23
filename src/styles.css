@@ -2011,6 +2011,58 @@ kbd {
   color: var(--gold);
 }
 
+/* Accounts */
+.acct-card {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), border-color 0.2s;
+}
+.acct-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+}
+.acct-card.archived {
+  opacity: 0.55;
+}
+.acct-card.unassigned {
+  cursor: default;
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+.acct-card.unassigned:hover {
+  transform: none;
+}
+.acct-stripe {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+}
+.acct-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.acct-details {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.swatch-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 0;
+}
+
 /* Financial statement */
 .statement {
   width: 100%;

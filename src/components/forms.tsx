@@ -3,6 +3,7 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
+import { activeAccounts, defaultAccountId, masked } from '../lib/accounts';
 import { advance } from '../lib/bills';
 import { taxPart } from '../lib/reports';
 import { useNav, type TxDefaults } from '../nav';
@@ -92,6 +93,11 @@ export function TxForm({
   const bill = billId ? data.bills.find((b) => b.id === billId) : undefined;
   const [projectId, setProjectId] = useState(initial?.projectId ?? defaults?.projectId ?? '');
   const [paidPersonally, setPaidPersonally] = useState(initial?.paidPersonally ?? false);
+  // undefined = "use the default account for this book"; '' = explicitly no account.
+  const [accountChoice, setAccountChoice] = useState<string | undefined>(initial ? initial.accountId ?? '' : defaults?.accountId);
+  const accountBook: Book = book === 'company' && kind === 'expense' && paidPersonally ? 'personal' : book;
+  const bookAccounts = activeAccounts(data, accountBook).map((a) => a.id);
+  const accountId = accountChoice !== undefined && (accountChoice === '' || bookAccounts.includes(accountChoice)) ? accountChoice : defaultAccountId(data, accountBook) ?? '';
   const [error, setError] = useState('');
 
   const categories = useMemo(() => {
@@ -116,6 +122,8 @@ export function TxForm({
       ...(book === 'company' && kind === 'expense' && paidPersonally ? { paidPersonally: true } : {}),
       ...(billId ? { billId } : {}),
       ...(taxRate ? { taxRate } : {}),
+      ...(accountId ? { accountId } : {}),
+      ...(initial?.adjustment ? { adjustment: true } : {}),
     };
     update((d) => ({
       ...d,
@@ -191,7 +199,8 @@ export function TxForm({
           <Field label="Date">
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} required />
           </Field>
-          <Field label="Note" className="full">
+          <AccountSelect book={accountBook} value={accountId} onChange={setAccountChoice} label={kind === 'income' ? 'Received into' : accountBook !== book ? 'Paid from (your account)' : 'Paid from'} />
+          <Field label="Note" className={bookAccounts.length ? undefined : 'full'}>
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={kind === 'expense' ? 'What was it for?' : 'Who paid you?'} />
           </Field>
           {book === 'company' && (
@@ -269,6 +278,14 @@ export function TransferForm({ initial, onClose }: { initial?: Transfer; onClose
   const [note, setNote] = useState(initial?.note ?? '');
   const [error, setError] = useState('');
   const company = data.settings.companyName || 'Company';
+  const [fromChoice, setFromChoice] = useState<string | undefined>(initial ? initial.fromAccountId ?? '' : undefined);
+  const [toChoice, setToChoice] = useState<string | undefined>(initial ? initial.toAccountId ?? '' : undefined);
+  const fromBook: Book = dir === 'in' ? 'personal' : 'company';
+  const toBook: Book = dir === 'in' ? 'company' : 'personal';
+  const pick = (choice: string | undefined, b: Book) =>
+    choice !== undefined && (choice === '' || activeAccounts(data, b).some((a) => a.id === choice)) ? choice : defaultAccountId(data, b) ?? '';
+  const fromAccountId = pick(fromChoice, fromBook);
+  const toAccountId = pick(toChoice, toBook);
 
   const reasons = dir === 'in' ? TO_COMPANY : TO_PERSONAL;
   const pickDir = (d: 'in' | 'out') => {
@@ -280,7 +297,16 @@ export function TransferForm({ initial, onClose }: { initial?: Transfer; onClose
     e.preventDefault();
     const minor = toMinor(amount);
     if (!minor) return setError('Enter an amount greater than zero.');
-    const t: Transfer = { id: initial?.id ?? uid(), createdAt: initial?.createdAt ?? Date.now(), reason, amount: minor, date, note: note.trim() };
+    const t: Transfer = {
+      id: initial?.id ?? uid(),
+      createdAt: initial?.createdAt ?? Date.now(),
+      reason,
+      amount: minor,
+      date,
+      note: note.trim(),
+      ...(fromAccountId ? { fromAccountId } : {}),
+      ...(toAccountId ? { toAccountId } : {}),
+    };
     update((d) => ({ ...d, transfers: initial ? d.transfers.map((x) => (x.id === t.id ? t : x)) : [t, ...d.transfers] }));
     toast(initial ? 'Transfer updated' : 'Transfer recorded');
     onClose();
@@ -350,9 +376,31 @@ export function TransferForm({ initial, onClose }: { initial?: Transfer; onClose
           <Field label="Note">
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
           </Field>
+          <AccountSelect book={fromBook} value={fromAccountId} onChange={setFromChoice} label="From account" />
+          <AccountSelect book={toBook} value={toAccountId} onChange={setToChoice} label="To account" />
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Account picker used by entry, transfer, invoice and import forms. Renders nothing until you have accounts. */
+export function AccountSelect({ book, value, onChange, label = 'Account', allowNone = true }: { book: Book; value: string; onChange: (id: string) => void; label?: string; allowNone?: boolean }) {
+  const { data } = useVault();
+  const list = activeAccounts(data, book);
+  if (!list.length) return null;
+  return (
+    <Field label={label}>
+      <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
+        {allowNone && <option value="">No account</option>}
+        {list.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+            {a.number ? ` · ${masked(a.number)}` : ''}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 

@@ -123,7 +123,7 @@ export function SettingsView() {
             ))}
           </select>
         </Row>
-        <Row title="Opening balances" desc="Cash you had before your first entry, so balances start at the right number.">
+        <Row title="Opening balances" desc="Money you had before your first entry that isn't in any account. If you use Accounts, set opening balances there instead and leave these at zero.">
           <div className="form-grid">
             {(['personal', 'company'] as Book[]).map((b) => (
               <Field key={b} label={b === 'personal' ? 'Personal cash' : `${s.companyName || 'Company'} cash`}>

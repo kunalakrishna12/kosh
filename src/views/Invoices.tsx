@@ -1,6 +1,8 @@
 import { Check, Copy, FileText, Pencil, Plus, Printer, Send, Trash2 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
+import { AccountSelect } from '../components/forms';
 import { Empty, Field, Modal, Seg, useToast } from '../components/ui';
+import { defaultAccountId } from '../lib/accounts';
 import { addDays, dayLabel, parseDate, today } from '../lib/dates';
 import { amountInWords, formatNumber, INDIAN_STATES, invoiceState, lineAmount, newInvoice, paymentEntries, totals, type InvoiceState } from '../lib/invoices';
 import { toInput, toMinor } from '../lib/money';
@@ -184,9 +186,10 @@ function MarkPaid({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
   const { data, update, money } = useVault();
   const toast = useToast();
   const [date, setDate] = useState(today());
+  const [accountId, setAccountId] = useState(() => defaultAccountId(data, 'company') ?? '');
   const tt = totals(inv, data.settings.company);
   const submit = () => {
-    const entries = paymentEntries(inv, data.settings.company, date, () => crypto.randomUUID());
+    const entries = paymentEntries(inv, data.settings.company, date, () => crypto.randomUUID(), accountId || undefined);
     update((d) => ({
       ...d,
       transactions: [...entries, ...d.transactions],
@@ -218,6 +221,7 @@ function MarkPaid({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         <Field label="Received on">
           <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} autoFocus />
         </Field>
+        <AccountSelect book="company" value={accountId} onChange={setAccountId} label="Received into" />
       </div>
     </Modal>
   );

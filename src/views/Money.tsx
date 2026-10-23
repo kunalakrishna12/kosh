@@ -1,6 +1,6 @@
 import { Download, FileUp, Search, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { activityOf, ActivityRow, type Activity } from '../components/rows';
+import { activityKey, activityOf, ActivityRow, type Activity } from '../components/rows';
 import { download, Empty, Seg } from '../components/ui';
 import { dayLabel, lastMonths, monthLabel } from '../lib/dates';
 import { TRANSFER_LABEL, type Book } from '../lib/types';
@@ -22,17 +22,27 @@ export function Money() {
   const [kind, setKind] = useState<KindFilter>('all');
   const [month, setMonth] = useState('');
   const [category, setCategory] = useState('');
+  const [account, setAccount] = useState('');
   const [limit, setLimit] = useState(150);
+  const accountName = (id?: string) => (id ? data.accounts.find((a) => a.id === id)?.name ?? '' : '');
 
   const categories = useMemo(() => [...new Set(data.transactions.filter((t) => book === 'all' || t.book === book).map((t) => t.category))].sort(), [data.transactions, book]);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return activityOf(data.transactions, data.transfers).filter((a) => {
+    return activityOf(data.transactions, data.transfers, data.moves).filter((a) => {
       if (month && !a.date.startsWith(month)) return false;
+      if (a.kind === 'move') {
+        if ((kind !== 'all' && kind !== 'transfer') || category) return false;
+        if (account && a.mv.from !== account && a.mv.to !== account) return false;
+        const acc = data.accounts.find((x) => x.id === a.mv.from);
+        if (book !== 'all' && acc && acc.book !== book) return false;
+        return !term || `${a.mv.note} ${accountName(a.mv.from)} ${accountName(a.mv.to)}`.toLowerCase().includes(term);
+      }
       if (a.kind === 'transfer') {
         if (kind !== 'all' && kind !== 'transfer') return false;
         if (category) return false;
+        if (account && a.tr.fromAccountId !== account && a.tr.toAccountId !== account) return false;
         return !term || `${TRANSFER_LABEL[a.tr.reason]} ${a.tr.note}`.toLowerCase().includes(term);
       }
       const t = a.tx;
@@ -40,16 +50,18 @@ export function Money() {
       if (kind !== 'all' && t.kind !== kind) return false;
       if (book !== 'all' && t.book !== book) return false;
       if (category && t.category !== category) return false;
+      if (account && t.accountId !== account) return false;
       if (!term) return true;
       const project = t.projectId ? data.projects.find((p) => p.id === t.projectId)?.name ?? '' : '';
-      return `${t.note} ${t.category} ${project} ${money.full(t.amount)}`.toLowerCase().includes(term);
+      return `${t.note} ${t.category} ${project} ${accountName(t.accountId)} ${money.full(t.amount)}`.toLowerCase().includes(term);
     });
-  }, [data, q, book, kind, month, category, money]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, q, book, kind, month, category, account, money]);
 
   const totals = useMemo(() => {
     let inc = 0;
     let exp = 0;
-    for (const a of rows) if (a.kind === 'tx') a.tx.kind === 'income' ? (inc += a.tx.amount) : (exp += a.tx.amount);
+    for (const a of rows) if (a.kind === 'tx' && !a.tx.adjustment) a.tx.kind === 'income' ? (inc += a.tx.amount) : (exp += a.tx.amount);
     return { inc, exp };
   }, [rows]);
 
@@ -59,17 +71,19 @@ export function Money() {
       let g = out[out.length - 1];
       if (!g || g.date !== a.date) out.push((g = { date: a.date, items: [], net: 0 }));
       g.items.push(a);
-      if (a.kind === 'tx') g.net += a.tx.kind === 'income' ? a.tx.amount : -a.tx.amount;
+      if (a.kind === 'tx' && !a.tx.adjustment) g.net += a.tx.kind === 'income' ? a.tx.amount : -a.tx.amount;
     }
     return out;
   }, [rows, limit]);
 
   const exportCsv = () => {
-    const head = ['date', 'book', 'type', 'category', 'amount', 'project', 'paid_personally', 'note'];
+    const head = ['date', 'book', 'type', 'category', 'amount', 'account', 'project', 'paid_personally', 'note'];
     const lines = rows.map((a) =>
       a.kind === 'tx'
-        ? [a.tx.date, a.tx.book, a.tx.kind, a.tx.category, (a.tx.amount / 100).toFixed(2), data.projects.find((p) => p.id === a.tx.projectId)?.name ?? '', a.tx.paidPersonally ? 'yes' : '', a.tx.note]
-        : [a.tr.date, 'transfer', a.tr.reason, TRANSFER_LABEL[a.tr.reason], (a.tr.amount / 100).toFixed(2), '', '', a.tr.note],
+        ? [a.tx.date, a.tx.book, a.tx.adjustment ? 'adjustment' : a.tx.kind, a.tx.category, (a.tx.amount / 100).toFixed(2), accountName(a.tx.accountId), data.projects.find((p) => p.id === a.tx.projectId)?.name ?? '', a.tx.paidPersonally ? 'yes' : '', a.tx.note]
+        : a.kind === 'transfer'
+          ? [a.tr.date, 'transfer', a.tr.reason, TRANSFER_LABEL[a.tr.reason], (a.tr.amount / 100).toFixed(2), `${accountName(a.tr.fromAccountId)} > ${accountName(a.tr.toAccountId)}`, '', '', a.tr.note]
+          : [a.mv.date, 'move', 'own accounts', '', (a.mv.amount / 100).toFixed(2), `${accountName(a.mv.from)} > ${accountName(a.mv.to)}`, '', '', a.mv.note],
     );
     const csv = [head, ...lines].map((l) => l.map(csvCell).join(',')).join('\n');
     download(new Blob([csv], { type: 'text/csv' }), `kosh-transactions${month ? `-${month}` : ''}.csv`);
@@ -96,7 +110,7 @@ export function Money() {
           <option value="all">All types</option>
           <option value="expense">Expenses</option>
           <option value="income">Income</option>
-          <option value="transfer">Transfers</option>
+          <option value="transfer">Transfers and moves</option>
         </select>
         <select className="select" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
           <option value="">All time</option>
@@ -108,6 +122,18 @@ export function Money() {
               </option>
             ))}
         </select>
+        {data.accounts.length > 0 && (
+          <select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Account">
+            <option value="">All accounts</option>
+            {data.accounts
+              .filter((a) => book === 'all' || a.book === book)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+          </select>
+        )}
         <select className="select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -169,7 +195,7 @@ export function Money() {
                   <span className={`num ${g.net > 0 ? 'up' : ''}`}>{g.net ? `${g.net > 0 ? '+' : '−'}${money.full(Math.abs(g.net))}` : ''}</span>
                 </div>
                 {g.items.map((a) => (
-                  <ActivityRow key={a.kind === 'tx' ? a.tx.id : a.tr.id} a={a} />
+                  <ActivityRow key={activityKey(a)} a={a} />
                 ))}
               </section>
             ))}

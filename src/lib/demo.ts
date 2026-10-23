@@ -1,6 +1,6 @@
 import { addDays, lastMonths, today } from './dates';
 import { advance } from './bills';
-import type { Bill, BillFrequency, BillKind, Book, Doc, DocFolder, Invoice, InvoiceItem, Project, Secret, Transaction, Transfer, VaultData } from './types';
+import type { Account, AccountKind, Bill, BillFrequency, BillKind, Book, Doc, DocFolder, Invoice, InvoiceItem, Project, Secret, Transaction, Transfer, VaultData } from './types';
 import { emptyVault, PROJECT_COLORS } from './types';
 
 /** A believable year of a founder's money and logins, for the demo and for screenshots. */
@@ -25,7 +25,8 @@ export function demoVault(): VaultData {
   const v = emptyVault();
   v.settings.ownerName = 'Aarav';
   v.settings.companyName = 'Lumen Studio';
-  v.settings.openingBalance = { personal: 18_50_000_00, company: 0 };
+  // Opening money lives in the accounts below.
+  v.settings.openingBalance = { personal: 0, company: 0 };
 
   const months = lastMonths(12);
   const end = today();
@@ -280,6 +281,77 @@ export function demoVault(): VaultData {
   // Keep a couple of entries dated today so the dashboard feels alive.
   add({ book: 'personal', kind: 'expense', amount: 640_00, category: 'Dining', note: 'Coffee + breakfast', date: end });
   add({ book: 'company', kind: 'expense', amount: 3_499_00, category: 'Software', note: 'Domain renewal', date: addDays(end, -1) });
+
+  // Accounts, and which account each sample entry went through.
+  const acct = (book: Book, name: string, kind: AccountKind, opening: number, color: string, extra: Partial<Account> = {}): Account => ({
+    id: id(),
+    book,
+    name,
+    kind,
+    bank: '',
+    holder: '',
+    number: '',
+    ifsc: '',
+    branch: '',
+    upi: '',
+    opening,
+    color,
+    archived: false,
+    notes: '',
+    createdAt: now,
+    ...extra,
+  });
+  const pSavings = acct('personal', 'HDFC Savings', 'savings', 18_40_000_00, '#3b82f6', { bank: 'HDFC Bank', holder: 'Aarav Kumar', number: '50100012345678', ifsc: 'HDFC0001234', branch: 'Madhapur, Hyderabad', upi: 'aarav@hdfcbank' });
+  const pCash = acct('personal', 'Cash in hand', 'cash', 10_000_00, '#65a30d', { notes: 'Wallet and the drawer at home.' });
+  const pCard = acct('personal', 'Amazon Pay ICICI card', 'card', 0, '#d9822b', { bank: 'ICICI Bank', number: '4321' });
+  const cCurrent = acct('company', 'HDFC Current', 'current', 0, '#16a394', { bank: 'HDFC Bank', holder: 'Lumen Studio Private Limited', number: '50200071234567', ifsc: 'HDFC0001234', branch: 'Madhapur, Hyderabad', upi: 'lumenstudio@hdfcbank' });
+  const cPetty = acct('company', 'Petty cash', 'cash', 5_000_00, '#0891b2', { notes: 'Cash box in the office.' });
+  const cCard = acct('company', 'Company credit card', 'card', 0, '#7c6cff', { bank: 'HDFC Bank', number: '8890' });
+  v.accounts = [pSavings, pCash, pCard, cCurrent, cPetty, cCard];
+
+  const onCard = /figma|github|openai|twilio|vercel|google workspace/i;
+  for (const t of v.transactions) {
+    if (t.book === 'personal') {
+      t.accountId =
+        t.category === 'Dining' || (t.category === 'Groceries' && t.note === 'Ratnadeep')
+          ? pCash.id
+          : t.category === 'Subscriptions' || t.category === 'Shopping' || t.note === 'Swiggy'
+            ? pCard.id
+            : pSavings.id;
+    } else if (t.paidPersonally) {
+      t.accountId = t.amount > 50_000_00 ? pSavings.id : pCard.id;
+    } else {
+      t.accountId = t.kind === 'expense' && onCard.test(t.note) ? cCard.id : cCurrent.id;
+    }
+  }
+  for (const t of v.transfers) {
+    const toCompany = t.reason === 'capital' || t.reason === 'loan';
+    t.fromAccountId = toCompany ? pSavings.id : cCurrent.id;
+    t.toAccountId = toCompany ? cCurrent.id : pSavings.id;
+  }
+
+  // Small office spends from petty cash.
+  months.forEach((m) => {
+    for (const day of [8, 22]) {
+      const date = `${m}-${day}`;
+      if (date <= end) add({ book: 'company', kind: 'expense', amount: between(800, 2_600), category: 'Office', note: pick(['Tea, coffee and snacks', 'Courier', 'Stationery', 'Cab for client meeting']), date, accountId: cPetty.id });
+    }
+  });
+
+  // ATM withdrawals, petty cash top-ups and card bills, sized from what was spent.
+  const spent = (accountId: string, month: string) => v.transactions.filter((t) => t.accountId === accountId && t.kind === 'expense' && t.date.startsWith(month)).reduce((s, t) => s + t.amount, 0);
+  const shift = (from: Account, to: Account, amount: number, date: string, note: string) =>
+    amount > 0 && date <= end && v.moves.push({ id: id(), from: from.id, to: to.id, amount, date, note, createdAt: now - v.moves.length });
+  months.forEach((m, i) => {
+    shift(pSavings, pCash, Math.ceil(spent(pCash.id, m) / 1_000_00) * 1_000_00 + 2_000_00, `${m}-01`, 'ATM withdrawal');
+    shift(cCurrent, cPetty, Math.ceil(spent(cPetty.id, m) / 1_000_00) * 1_000_00 + 1_000_00, `${m}-01`, 'Petty cash top-up');
+    const next = months[i + 1];
+    if (next) {
+      shift(pSavings, pCard, spent(pCard.id, m), `${next}-15`, 'Card bill paid');
+      shift(cCurrent, cCard, spent(cCard.id, m), `${next}-15`, 'Card bill paid');
+    }
+  });
+
   return v;
 }
 

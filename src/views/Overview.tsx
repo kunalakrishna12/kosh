@@ -1,10 +1,12 @@
 import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Info, KeyRound, Receipt, User, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AreaChart, Ring, Sparkline } from '../components/charts';
-import { activityOf, ActivityRow } from '../components/rows';
+import { activityKey, activityOf, ActivityRow } from '../components/rows';
 import { Bar, Empty, Seg } from '../components/ui';
 import { balances, flow, insights, monthly, projectStats, runway, savingsRate, type Insight } from '../lib/analytics';
 import { addDays, monthLabel, today } from '../lib/dates';
+import { activeAccounts, masked } from '../lib/accounts';
+import { accountBalances } from '../lib/analytics';
 import { occurrences } from '../lib/bills';
 import { vaultHealth } from '../lib/passwords';
 import { usePayBill } from './Bills';
@@ -56,6 +58,7 @@ export function Overview() {
   const company = data.settings.companyName || 'Company';
   const isEmpty = !data.transactions.length && !data.transfers.length;
   const pay = usePayBill();
+  const accountTotals = useMemo(() => accountBalances(data).byAccount, [data]);
   const dueBills = useMemo(() => {
     const seen = new Set<string>();
     return occurrences(data.bills, t, addDays(t, 14)).filter((o) => !seen.has(o.bill.id) && seen.add(o.bill.id)).slice(0, 5);
@@ -239,11 +242,35 @@ export function Overview() {
               </div>
               <div className="list">
                 {recent.map((a) => (
-                  <ActivityRow key={a.kind === 'tx' ? a.tx.id : a.tr.id} a={a} />
+                  <ActivityRow key={activityKey(a)} a={a} />
                 ))}
               </div>
             </div>
             <div className="stack" style={{ gap: 16 }}>
+              {data.accounts.length > 0 && (
+                <div className="card">
+                  <div className="card-h">
+                    <h2>Accounts &amp; cash</h2>
+                    <button className="btn ghost sm" onClick={() => nav.go('accounts')}>
+                      All <ArrowRight size={13} />
+                    </button>
+                  </div>
+                  <div className="stack" style={{ gap: 9 }}>
+                    {activeAccounts(data).map((a) => (
+                      <div key={a.id} className="row" style={{ gap: 10, cursor: 'pointer' }} onClick={() => nav.go('accounts')}>
+                        <i className="swatch" style={{ background: a.color }} />
+                        <span className="tx-t" style={{ flex: 1, fontSize: 13.5 }}>
+                          {a.name}
+                          {a.number && <span className="faint"> {masked(a.number)}</span>}
+                        </span>
+                        <span className={`num ${(accountTotals.get(a.id) ?? 0) < 0 ? 'down' : ''}`} style={{ fontSize: 13, fontWeight: 600 }}>
+                          {money.compact(accountTotals.get(a.id) ?? 0)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {dueBills.length > 0 && (
                 <div className="card">
                   <div className="card-h">

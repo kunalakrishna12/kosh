@@ -29,6 +29,52 @@ export interface Transaction {
   taxRate?: number;
   /** Set when this entry is a payment against an invoice. */
   invoiceId?: string;
+  /** The bank account, card or cash the money came from or went into. */
+  accountId?: string;
+  /** A correction from "Update balance". Moves cash but is not income or expense. */
+  adjustment?: boolean;
+  createdAt: number;
+}
+
+export type AccountKind = 'savings' | 'current' | 'cash' | 'card' | 'wallet' | 'deposit';
+
+export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
+  savings: 'Savings account',
+  current: 'Current account',
+  cash: 'Cash in hand',
+  card: 'Credit card',
+  wallet: 'Wallet / UPI',
+  deposit: 'Fixed deposit',
+};
+
+/** A place money lives: a bank account, cash, a card or a wallet. */
+export interface Account {
+  id: string;
+  book: Book;
+  name: string;
+  kind: AccountKind;
+  bank: string;
+  holder: string;
+  number: string;
+  ifsc: string;
+  branch: string;
+  upi: string;
+  /** Balance before the first entry recorded in Kosh. Negative for money owed on a card. */
+  opening: number;
+  color: string;
+  archived: boolean;
+  notes: string;
+  createdAt: number;
+}
+
+/** Money moved between two of your own accounts in the same book, like an ATM withdrawal. */
+export interface Move {
+  id: string;
+  from: string;
+  to: string;
+  amount: number;
+  date: string;
+  note: string;
   createdAt: number;
 }
 
@@ -98,6 +144,8 @@ export interface Transfer {
   amount: number;
   date: string;
   note: string;
+  fromAccountId?: string;
+  toAccountId?: string;
   createdAt: number;
 }
 
@@ -263,6 +311,8 @@ export interface VaultData {
   budgets: Budget[];
   rules: Rule[];
   docs: Doc[];
+  accounts: Account[];
+  moves: Move[];
 }
 
 export const TO_COMPANY: TransferReason[] = ['capital', 'loan'];
@@ -312,6 +362,8 @@ export function emptyVault(): VaultData {
     budgets: [],
     rules: [],
     docs: [],
+    accounts: [],
+    moves: [],
   };
 }
 

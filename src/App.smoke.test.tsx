@@ -63,6 +63,7 @@ describe('app smoke test', () => {
 
   it.each([
     ['Transactions', 'Money in'],
+    ['Accounts & cash', 'Cash in hand'],
     ['Bills', 'Coming up'],
     ['Projects', 'Atlas Banking App'],
     ['You & Company', 'owes you'],
@@ -89,6 +90,7 @@ describe('app smoke test', () => {
       ['Passwords', 'New login'],
       ['Invoices', 'New invoice'],
       ['Budgets', 'New budget'],
+      ['Accounts & cash', 'New account'],
     ]) {
       await click(navButton(screen));
       await click(container.querySelector('.top .btn.primary'));
@@ -145,6 +147,26 @@ describe('app smoke test', () => {
     await click(container.querySelector('.doc-card'));
     await act(async () => new Promise((r) => setTimeout(r, 20)));
     expect(document.querySelector('.doc-preview iframe')).toBeTruthy();
+    await closeModal();
+  });
+
+  it('opens an account, updates its balance and moves cash', async () => {
+    await click(navButton('Accounts & cash'));
+    const card = [...container.querySelectorAll('.acct-card[role="button"]')].find((c) => c.textContent?.includes('Cash in hand'))!;
+    await click(card);
+    await click([...document.querySelectorAll('.modal-f .btn')].find((b) => b.textContent?.includes('Update balance')));
+    const input = document.querySelector('.modal .input.num') as HTMLInputElement;
+    await act(async () => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      set.call(input, '1234');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click([...document.querySelectorAll('.modal .btn')].find((b) => b.textContent?.includes('Save balance')));
+    expect(document.querySelector('.modal .stat-v')?.textContent).toContain('1,234');
+    await closeModal();
+    expect(card.textContent).toContain('1,234');
+    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Move money between accounts')));
+    expect(document.querySelector('.modal-h h2')?.textContent).toBe('Move money between accounts');
     await closeModal();
   });
 

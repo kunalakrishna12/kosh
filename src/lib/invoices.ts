@@ -69,7 +69,7 @@ export function newInvoice(c: CompanyProfile, id: string): Invoice {
 }
 
 /** One income entry per tax rate, so the GST summary stays exact. */
-export function paymentEntries(inv: Invoice, company: Pick<CompanyProfile, 'state'>, date: string, ids: () => string): Transaction[] {
+export function paymentEntries(inv: Invoice, company: Pick<CompanyProfile, 'state'>, date: string, ids: () => string, accountId?: string): Transaction[] {
   const tt = totals(inv, company);
   const label = `${inv.number} · ${inv.clientName || 'Client'}`;
   return tt.byRate
@@ -85,6 +85,7 @@ export function paymentEntries(inv: Invoice, company: Pick<CompanyProfile, 'stat
       invoiceId: inv.id,
       ...(inv.projectId ? { projectId: inv.projectId } : {}),
       ...(r.rate ? { taxRate: r.rate } : {}),
+      ...(accountId ? { accountId } : {}),
       createdAt: Date.now(),
     }));
 }

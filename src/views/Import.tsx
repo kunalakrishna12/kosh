@@ -1,6 +1,7 @@
 import { FileText, FileUp, Receipt, Sparkles, Upload } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { BookLabel } from '../components/forms';
+import { AccountSelect, BookLabel } from '../components/forms';
+import { accountFromStatement, defaultAccountId } from '../lib/accounts';
 import { Modal, Seg, useToast } from '../components/ui';
 import { advance } from '../lib/bills';
 import { addDays, dayLabel, today } from '../lib/dates';
@@ -48,6 +49,8 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
   const [raw, setRaw] = useState<string[][] | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
   const [book, setBook] = useState<Book>('company');
+  const [accountId, setAccountId] = useState('');
+  const [detected, setDetected] = useState(false);
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [suggested, setSuggested] = useState<Map<string, string>>(new Map());
   const [skipped, setSkipped] = useState(0);
@@ -72,7 +75,13 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
     setFile(f);
     setRaw(parsed);
     setMapping(m);
-    rebuild(parsed, m, book);
+    // Recognise the account from the number printed above the table.
+    const acct = accountFromStatement(data, parsed.slice(0, m.headerRow));
+    const b = acct?.book ?? book;
+    setBook(b);
+    setAccountId(acct?.id ?? defaultAccountId(data, b) ?? '');
+    setDetected(!!acct);
+    rebuild(parsed, m, b);
   };
 
   const remap = (patch: Partial<Mapping>) => {
@@ -97,7 +106,7 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
     const now = Date.now();
     // A credit that pays an invoice is recorded the way "Mark paid" records it: one entry per GST rate.
     const paidInvoices = new Map(chosen.filter((r) => r.invoiceId).map((r) => [r.invoiceId!, r.date]));
-    const invoiceTxs = [...paidInvoices].flatMap(([id, date]) => paymentEntries(data.invoices.find((x) => x.id === id)!, data.settings.company, date, () => crypto.randomUUID()));
+    const invoiceTxs = [...paidInvoices].flatMap(([id, date]) => paymentEntries(data.invoices.find((x) => x.id === id)!, data.settings.company, date, () => crypto.randomUUID(), accountId || undefined));
     const txs: Transaction[] = chosen.filter((r) => !r.invoiceId).map((r, i) => ({
       id: crypto.randomUUID(),
       book,
@@ -107,6 +116,7 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
       date: r.date,
       note: r.description,
       ...(r.billId ? { billId: r.billId } : {}),
+      ...(accountId ? { accountId } : {}),
       createdAt: now - i,
     }));
     // Corrections you made become rules for next time.
@@ -219,6 +229,8 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
               value={book}
               onChange={(b) => {
                 setBook(b);
+                setAccountId(defaultAccountId(data, b) ?? '');
+                setDetected(false);
                 if (raw && mapping) rebuild(raw, mapping, b);
               }}
               options={[
@@ -229,6 +241,9 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
             <span className="faint" style={{ fontSize: 12.5 }}>
               {file?.name} · {rows.length} entries{skipped ? ` · ${skipped} lines skipped (totals, blanks)` : ''}
             </span>
+          </div>
+          <div style={{ maxWidth: 360 }}>
+            <AccountSelect book={book} value={accountId} onChange={(id) => (setAccountId(id), setDetected(false))} label={detected ? 'Statement of (recognised from the account number)' : 'Statement of which account?'} />
           </div>
 
           {mapping && (

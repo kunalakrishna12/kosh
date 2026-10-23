@@ -37,6 +37,7 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 
 ### 💸 Money: personal and company, side by side
 - **Two books in one place.** Personal and company income and expenses, with smart categories.
+- **Accounts and cash.** Every bank account, cash in hand, credit card and wallet, for you and the company, each with its details (account number, IFSC, UPI) and a live balance. Record ATM withdrawals, cash deposits and card bill payments as moves between your own accounts, and **update a balance** after counting your cash without disturbing profit and loss.
 - **You ↔ Company ledger.** Capital, loans, salary, dividends, repayments and reimbursements, plus a live **"company owes you"** balance.
 - **Cash in each pocket**, from opening balances plus every entry and transfer.
 - **Bank statement import.** Drop in a CSV from HDFC, ICICI, SBI, Axis, Kotak or almost any bank or card. Kosh finds the header, works out the date format and columns, auto-categorises each line (your rules, then your history, then a built-in merchant list), flags duplicates, matches bill payments and invoice receipts, and learns from your corrections.

@@ -7,6 +7,7 @@ import { prefs } from './lib/storage';
 import type { ThemePref } from './lib/types';
 import { NAV_GROUPS, NAV_ITEMS, NavCtx, type Dialog, type Nav, type View } from './nav';
 import { useVault } from './store';
+import { AccountForm, Accounts, MoveForm } from './views/Accounts';
 import { Bills } from './views/Bills';
 import { BudgetForm, Budgets } from './views/Budgets';
 import { Documents, UploadForm } from './views/Documents';
@@ -69,9 +70,10 @@ export function useTheme(): [ThemePref, (t: ThemePref) => void] {
 }
 
 /** What the "+" button in the top bar creates on each screen. */
-const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret' | 'invoice' | 'budget' | 'upload'; label: string }> = {
+const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret' | 'invoice' | 'budget' | 'upload' | 'account'; label: string }> = {
   overview: { type: 'tx', label: 'Entry' },
   money: { type: 'tx', label: 'Entry' },
+  accounts: { type: 'account', label: 'Account' },
   bills: { type: 'bill', label: 'Bill' },
   invoices: { type: 'invoice', label: 'Invoice' },
   budgets: { type: 'budget', label: 'Budget' },
@@ -87,6 +89,7 @@ const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'se
 const TITLES: Record<View, string> = {
   overview: 'Overview',
   money: 'Transactions',
+  accounts: 'Accounts & cash',
   bills: 'Bills',
   invoices: 'Invoices',
   budgets: 'Budgets',
@@ -167,6 +170,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
   const Page = {
     overview: Overview,
     money: Money,
+    accounts: Accounts,
     bills: Bills,
     invoices: Invoices,
     projects: Projects,
@@ -269,6 +273,8 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
       {dialog?.type === 'invoice' && <InvoiceForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'import' && <ImportForm onClose={close} />}
+      {dialog?.type === 'account' && <AccountForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
+      {dialog?.type === 'move' && <MoveForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'upload' && <UploadForm files={dialog.files} defaults={dialog.defaults} onClose={close} />}
       {more && (
         <div className="scrim sheet-scrim" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>

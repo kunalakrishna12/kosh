@@ -51,7 +51,8 @@ export interface Line {
 
 /** Every P&L line in the vault: transactions plus the transfers that count as income or expense. */
 export function plLines(data: VaultData): Line[] {
-  const lines: Line[] = data.transactions.map((t) => ({
+  // Balance corrections move cash but are neither earned nor spent.
+  const lines: Line[] = data.transactions.filter((t) => !t.adjustment).map((t) => ({
     book: t.book,
     kind: t.kind,
     amount: t.amount,
@@ -91,9 +92,11 @@ export interface Balances {
 }
 
 export function balances(data: VaultData, asOf = today()): Balances {
+  // Each book starts with its own opening balance plus the opening balance of each of its accounts.
+  const accountOpening = (book: Book) => data.accounts.filter((a) => a.book === book).reduce((s, a) => s + a.opening, 0);
   const b: Balances = {
-    personal: data.settings.openingBalance.personal,
-    company: data.settings.openingBalance.company,
+    personal: data.settings.openingBalance.personal + accountOpening('personal'),
+    company: data.settings.openingBalance.company + accountOpening('company'),
     owedToYou: 0,
     capital: 0,
     drawnThisYear: 0,
@@ -347,4 +350,36 @@ export function insights(data: VaultData, fmt: (minor: number) => string, end = 
 
 export function sortByDateDesc<T extends { date: string; createdAt: number }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1));
+}
+
+export interface AccountBalances {
+  byAccount: Map<string, number>;
+  /** Cash in each book that isn't recorded against any account. */
+  unassigned: Record<Book, number>;
+}
+
+/**
+ * Balance of every account: its opening balance, plus entries and transfers that name it,
+ * plus moves between accounts. Whatever a book holds beyond its accounts is "unassigned".
+ */
+export function accountBalances(data: VaultData, asOf = today()): AccountBalances {
+  const byAccount = new Map(data.accounts.map((a) => [a.id, a.opening]));
+  const add = (id: string | undefined, v: number) => {
+    if (id && byAccount.has(id)) byAccount.set(id, byAccount.get(id)! + v);
+  };
+  for (const t of data.transactions) if (t.date <= asOf) add(t.accountId, t.kind === 'income' ? t.amount : -t.amount);
+  for (const t of data.transfers) {
+    if (t.date > asOf) continue;
+    add(t.fromAccountId, -t.amount);
+    add(t.toAccountId, t.amount);
+  }
+  for (const m of data.moves) {
+    if (m.date > asOf) continue;
+    add(m.from, -m.amount);
+    add(m.to, m.amount);
+  }
+  const b = balances(data, asOf);
+  const unassigned = { personal: b.personal, company: b.company };
+  for (const a of data.accounts) unassigned[a.book] -= byAccount.get(a.id)!;
+  return { byAccount, unassigned };
 }

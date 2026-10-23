@@ -1,16 +1,17 @@
-import { ArrowLeftRight, FileBarChart, FileText, FolderKanban, FolderLock, Gauge, KeyRound, LayoutGrid, Receipt, Settings, Sparkles, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, FileBarChart, Landmark, FileText, FolderKanban, FolderLock, Gauge, KeyRound, LayoutGrid, Receipt, Settings, Sparkles, Wallet, type LucideIcon } from 'lucide-react';
 import { createContext, useContext } from 'react';
-import type { Bill, Book, Budget, DocFolder, Invoice, Project, Secret, Transaction, Transfer } from './lib/types';
+import type { Account, Bill, Book, Budget, DocFolder, Invoice, Move, Project, Secret, Transaction, Transfer } from './lib/types';
 
-export type View = 'overview' | 'money' | 'bills' | 'invoices' | 'projects' | 'owner' | 'budgets' | 'reports' | 'insights' | 'vault' | 'documents' | 'settings';
+export type View = 'overview' | 'money' | 'accounts' | 'bills' | 'invoices' | 'projects' | 'owner' | 'budgets' | 'reports' | 'insights' | 'vault' | 'documents' | 'settings';
 
 export const NAV_GROUPS = ['Money', 'Planning', 'Vault', 'App'] as const;
 
 export const NAV_ITEMS: { view: View; label: string; icon: LucideIcon; group: (typeof NAV_GROUPS)[number]; mobile?: string }[] = [
   { view: 'overview', label: 'Overview', icon: LayoutGrid, group: 'Money', mobile: 'Home' },
   { view: 'money', label: 'Transactions', icon: Wallet, group: 'Money', mobile: 'Money' },
+  { view: 'accounts', label: 'Accounts & cash', icon: Landmark, group: 'Money', mobile: 'Accounts' },
   { view: 'bills', label: 'Bills', icon: Receipt, group: 'Money', mobile: 'Bills' },
-  { view: 'invoices', label: 'Invoices', icon: FileText, group: 'Money', mobile: 'Invoices' },
+  { view: 'invoices', label: 'Invoices', icon: FileText, group: 'Money' },
   { view: 'projects', label: 'Projects', icon: FolderKanban, group: 'Money' },
   { view: 'owner', label: 'You & Company', icon: ArrowLeftRight, group: 'Money' },
   { view: 'budgets', label: 'Budgets', icon: Gauge, group: 'Planning' },
@@ -21,7 +22,7 @@ export const NAV_ITEMS: { view: View; label: string; icon: LucideIcon; group: (t
   { view: 'settings', label: 'Settings', icon: Settings, group: 'App' },
 ];
 
-export type TxDefaults = Partial<Pick<Transaction, 'book' | 'kind' | 'projectId' | 'billId' | 'amount' | 'category' | 'note' | 'taxRate'>>;
+export type TxDefaults = Partial<Pick<Transaction, 'book' | 'kind' | 'projectId' | 'billId' | 'amount' | 'category' | 'note' | 'taxRate' | 'accountId'>>;
 
 export type Dialog =
   | { type: 'tx'; initial?: Transaction; defaults?: TxDefaults }
@@ -33,6 +34,8 @@ export type Dialog =
   | { type: 'invoice'; initial?: Invoice }
   | { type: 'budget'; initial?: Budget }
   | { type: 'import' }
+  | { type: 'account'; initial?: Account; defaults?: { book?: Book } }
+  | { type: 'move'; initial?: Move; defaults?: { from?: string; to?: string } }
   | { type: 'upload'; files: File[]; defaults?: { folder?: DocFolder; book?: Book; linkId?: string } };
 
 export interface Nav {

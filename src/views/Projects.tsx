@@ -1,7 +1,7 @@
 import { FolderKanban, Pencil, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Bars } from '../components/charts';
-import { activityOf, ActivityRow } from '../components/rows';
+import { activityKey, activityOf, ActivityRow } from '../components/rows';
 import { Bar, Empty, Modal, Seg } from '../components/ui';
 import { projectStats } from '../lib/analytics';
 import { monthKey, monthLabel } from '../lib/dates';
@@ -237,7 +237,7 @@ function ProjectDetail({ p, onClose }: { p: Project; onClose: () => void }) {
             No entries yet. Tag company income and costs to this project to see its margin.
           </p>
         ) : (
-          activityOf(txs, []).map((a) => <ActivityRow key={a.kind === 'tx' ? a.tx.id : ''} a={a} />)
+          activityOf(txs, []).map((a) => <ActivityRow key={activityKey(a)} a={a} />)
         )}
       </div>
     </Modal>
