@@ -1,14 +1,15 @@
-import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Info, KeyRound, Receipt, User, Wallet } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Info, KeyRound, Receipt, TrendingUp, User, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AreaChart, Ring, Sparkline } from '../components/charts';
 import { activityKey, activityOf, ActivityRow } from '../components/rows';
 import { Bar, Empty, Seg } from '../components/ui';
 import { balances, flow, insights, monthly, projectStats, runway, savingsRate, type Insight } from '../lib/analytics';
 import { addDays, monthLabel, today } from '../lib/dates';
-import { activeAccounts, masked } from '../lib/accounts';
+import { activeAccounts, investmentTotals, masked, sipsDue } from '../lib/accounts';
 import { accountBalances } from '../lib/analytics';
 import { occurrences } from '../lib/bills';
 import { vaultHealth } from '../lib/passwords';
+import { usePaySip } from './Accounts';
 import { usePayBill } from './Bills';
 import type { Book } from '../lib/types';
 import { useNav } from '../nav';
@@ -59,6 +60,11 @@ export function Overview() {
   const isEmpty = !data.transactions.length && !data.transfers.length;
   const pay = usePayBill();
   const accountTotals = useMemo(() => accountBalances(data).byAccount, [data]);
+  const paySip = usePaySip();
+  const dueSips = useMemo(() => sipsDue(data, addDays(t, 14)).slice(0, 4), [data, t]);
+  // Investment accounts hold money, but not cash you can spend: show them separately.
+  const invested = useMemo(() => ({ personal: investmentTotals(data, 'personal').value, company: investmentTotals(data, 'company').value }), [data]);
+  const hasInvestments = data.accounts.some((a) => a.kind === 'investment' && !a.archived);
   const dueBills = useMemo(() => {
     const seen = new Set<string>();
     return occurrences(data.bills, t, addDays(t, 14)).filter((o) => !seen.has(o.bill.id) && seen.add(o.bill.id)).slice(0, 5);
@@ -87,7 +93,9 @@ export function Overview() {
               {name ? `, ${name}` : ''}
             </p>
             <p className="hero-total num">{money.full(b.personal + b.company)}</p>
-            <div className="hero-cap">Cash across you and {company} today</div>
+            <div className="hero-cap">
+              {hasInvestments ? 'Cash and investments' : 'Cash'} across you and {company} today
+            </div>
           </div>
           <div style={{ width: 220, maxWidth: '100%' }}>
             <Sparkline values={series.map((_, i) => series.slice(0, i + 1).reduce((s, p) => s + p.personal.income - p.personal.expense + p.company.income - p.company.expense, 0))} color="var(--gold)" height={56} />
@@ -102,15 +110,25 @@ export function Overview() {
               <i className="swatch" style={{ background: 'var(--personal)' }} />
               Personal cash
             </div>
-            <div className="pocket-v num">{money.full(b.personal)}</div>
+            <div className="pocket-v num">{money.full(b.personal - invested.personal)}</div>
           </div>
           <div className="pocket">
             <div className="pocket-l">
               <i className="swatch" style={{ background: 'var(--company)' }} />
               {company} cash
             </div>
-            <div className="pocket-v num">{money.full(b.company)}</div>
+            <div className="pocket-v num">{money.full(b.company - invested.company)}</div>
           </div>
+          {hasInvestments && (
+            <div className="pocket" style={{ cursor: 'pointer' }} onClick={() => nav.go('accounts')}>
+              <div className="pocket-l">
+                <i className="swatch" style={{ background: 'var(--income)' }} />
+                Investments
+                <ArrowRight size={13} style={{ marginLeft: 'auto' }} />
+              </div>
+              <div className="pocket-v num">{money.full(invested.personal + invested.company)}</div>
+            </div>
+          )}
           <div className="pocket" style={{ cursor: 'pointer' }} onClick={() => nav.go('owner')}>
             <div className="pocket-l">
               <i className="swatch" style={{ background: 'var(--gold)' }} />
@@ -271,10 +289,10 @@ export function Overview() {
                   </div>
                 </div>
               )}
-              {dueBills.length > 0 && (
+              {(dueBills.length > 0 || dueSips.length > 0) && (
                 <div className="card">
                   <div className="card-h">
-                    <h2>Bills due soon</h2>
+                    <h2>Due soon</h2>
                     <button className="btn ghost sm" onClick={() => nav.go('bills')}>
                       All bills <ArrowRight size={13} />
                     </button>
@@ -296,6 +314,25 @@ export function Overview() {
                         </span>
                         <button className="btn sm" onClick={() => pay(bill)}>
                           Pay
+                        </button>
+                      </div>
+                    ))}
+                    {dueSips.map((sip) => (
+                      <div key={sip.id} className="row" style={{ gap: 10 }}>
+                        <TrendingUp size={15} style={{ color: 'var(--income)', flex: 'none' }} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="tx-t" style={{ fontSize: 13.5 }}>
+                            SIP · {sip.name}
+                          </div>
+                          <div className={sip.nextDue < t ? 'down' : 'faint'} style={{ fontSize: 12 }}>
+                            {sip.nextDue < t ? 'Overdue' : sip.nextDue === t ? 'Today' : `Due ${sip.nextDue.slice(8)} ${monthLabel(sip.nextDue.slice(0, 7))}`}
+                          </div>
+                        </div>
+                        <span className="num" style={{ fontSize: 13, fontWeight: 600 }}>
+                          {money.compact(sip.amount)}
+                        </span>
+                        <button className="btn sm" onClick={() => paySip(sip)}>
+                          Done
                         </button>
                       </div>
                     ))}

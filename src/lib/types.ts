@@ -36,7 +36,7 @@ export interface Transaction {
   createdAt: number;
 }
 
-export type AccountKind = 'savings' | 'current' | 'cash' | 'card' | 'wallet' | 'deposit';
+export type AccountKind = 'savings' | 'current' | 'cash' | 'card' | 'wallet' | 'deposit' | 'investment';
 
 export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
   savings: 'Savings account',
@@ -45,6 +45,7 @@ export const ACCOUNT_KIND_LABEL: Record<AccountKind, string> = {
   card: 'Credit card',
   wallet: 'Wallet / UPI',
   deposit: 'Fixed deposit',
+  investment: 'Mutual fund / investment',
 };
 
 /** A place money lives: a bank account, cash, a card or a wallet. */
@@ -75,6 +76,24 @@ export interface Move {
   amount: number;
   date: string;
   note: string;
+  /** Set when this move is an instalment of a SIP. */
+  sipId?: string;
+  createdAt: number;
+}
+
+/** A systematic investment plan: a fixed amount moved from a bank account into an investment, every cycle. */
+export interface Sip {
+  id: string;
+  name: string;
+  fromAccountId: string;
+  /** The investment account it buys into. */
+  toAccountId: string;
+  amount: number;
+  frequency: 'weekly' | 'monthly' | 'quarterly';
+  nextDue: string;
+  /** Auto-debit mandate set up with the bank. */
+  autopay: boolean;
+  active: boolean;
   createdAt: number;
 }
 
@@ -313,6 +332,7 @@ export interface VaultData {
   docs: Doc[];
   accounts: Account[];
   moves: Move[];
+  sips: Sip[];
 }
 
 export const TO_COMPANY: TransferReason[] = ['capital', 'loan'];
@@ -364,6 +384,7 @@ export function emptyVault(): VaultData {
     docs: [],
     accounts: [],
     moves: [],
+    sips: [],
   };
 }
 

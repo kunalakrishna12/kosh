@@ -7,7 +7,7 @@ import { prefs } from './lib/storage';
 import type { ThemePref } from './lib/types';
 import { NAV_GROUPS, NAV_ITEMS, NavCtx, type Dialog, type Nav, type View } from './nav';
 import { useVault } from './store';
-import { AccountForm, Accounts, MoveForm } from './views/Accounts';
+import { AccountForm, Accounts, MoveForm, SipForm } from './views/Accounts';
 import { Bills } from './views/Bills';
 import { BudgetForm, Budgets } from './views/Budgets';
 import { Documents, UploadForm } from './views/Documents';
@@ -274,6 +274,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
       {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'import' && <ImportForm onClose={close} />}
       {dialog?.type === 'account' && <AccountForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
+      {dialog?.type === 'sip' && <SipForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'move' && <MoveForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'upload' && <UploadForm files={dialog.files} defaults={dialog.defaults} onClose={close} />}
       {more && (

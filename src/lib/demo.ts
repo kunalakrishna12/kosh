@@ -93,7 +93,6 @@ export function demoVault(): VaultData {
     if (sal) move({ reason: 'salary', amount: 1_80_000_00, date: sal, note: 'Monthly salary' });
 
     // Personal
-    push(d(5), { book: 'personal', kind: 'expense', amount: 15_000_00, category: 'Investments', note: 'Index fund SIP' });
     for (const x of [6, 13, 20, 26]) push(d(x), { book: 'personal', kind: 'expense', amount: between(2_400, 4_600), category: 'Groceries', note: pick(['BigBasket', 'Ratnadeep', 'Zepto']) });
     for (const x of [9, 17, 23]) push(d(x), { book: 'personal', kind: 'expense', amount: between(1_200, mi > 9 ? 6_800 : 3_600), category: 'Dining', note: pick(['Dinner with friends', 'Swiggy', 'Café', 'Team lunch']) });
     push(d(19), { book: 'personal', kind: 'expense', amount: between(8_000, 14_000), category: 'Family', note: 'Sent home' });
@@ -337,6 +336,36 @@ export function demoVault(): VaultData {
       if (date <= end) add({ book: 'company', kind: 'expense', amount: between(800, 2_600), category: 'Office', note: pick(['Tea, coffee and snacks', 'Courier', 'Stationery', 'Cab for client meeting']), date, accountId: cPetty.id });
     }
   });
+
+  // SIPs into two funds, with month-end value updates so returns show.
+  const fund = (name: string, platform: string, opening: number, color: string) => acct('personal', name, 'investment', opening, color, { bank: platform });
+  const index = fund('UTI Nifty 50 Index Fund', 'Zerodha Coin', 2_40_000_00, '#16a394');
+  const flexi = fund('Parag Parikh Flexi Cap', 'Groww', 0, '#c026d3');
+  v.accounts.push(index, flexi);
+  const plans = [
+    { f: index, amount: 15_000_00, day: 5, start: 0, drift: 0.007 },
+    { f: flexi, amount: 5_000_00, day: 10, start: 6, drift: 0.014 },
+  ];
+  v.sips = plans.map(({ f, amount, day, start }) => {
+    const sipId = id();
+    let due = `${months[start]}-${String(day).padStart(2, '0')}`;
+    while (due <= end) {
+      v.moves.push({ id: id(), from: pSavings.id, to: f.id, amount, date: due, note: `SIP · ${f.name}`, sipId, createdAt: now - v.moves.length });
+      due = advance(due, 'monthly');
+    }
+    return { id: sipId, name: f.name, fromAccountId: pSavings.id, toAccountId: f.id, amount, frequency: 'monthly' as const, nextDue: due, autopay: true, active: true, createdAt: now };
+  });
+  for (const { f, drift, start } of plans) {
+    let value = f.opening;
+    months.slice(start).forEach((m) => {
+      const invested = v.moves.filter((x) => x.to === f.id && x.date.startsWith(m)).reduce((s, x) => s + x.amount, 0);
+      value += invested;
+      const change = Math.round((value * (drift + (r() - 0.45) * 0.04)) / 100) * 100;
+      const date = m === end.slice(0, 7) ? end : `${m}-28`;
+      if (change) add({ book: 'personal', kind: change > 0 ? 'income' : 'expense', amount: Math.abs(change), category: 'Balance adjustment', note: `${f.name} value updated`, date, accountId: f.id, adjustment: true });
+      value += change;
+    });
+  }
 
   // ATM withdrawals, petty cash top-ups and card bills, sized from what was spent.
   const spent = (accountId: string, month: string) => v.transactions.filter((t) => t.accountId === accountId && t.kind === 'expense' && t.date.startsWith(month)).reduce((s, t) => s + t.amount, 0);

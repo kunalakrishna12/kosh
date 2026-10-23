@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Dices, Landmark, Repeat, FileText, FileUp, FolderKanban, FolderLock, Gauge, KeyRound, Lock, Receipt, Search, type LucideIcon } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Dices, Landmark, Repeat, TrendingUp, FileText, FileUp, FolderKanban, FolderLock, Gauge, KeyRound, Lock, Receipt, Search, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { hostOf } from '../lib/passwords';
@@ -35,6 +35,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
       { id: 'new-inc', group: 'Create', label: 'Income', icon: ArrowDownLeft, run: act(() => nav.open({ type: 'tx', defaults: { book: 'company', kind: 'income' } })), keywords: 'add payment invoice' },
       { id: 'new-tr', group: 'Create', label: 'Move money between you and the company', icon: ArrowLeftRight, run: act(() => nav.open({ type: 'transfer' })), keywords: 'salary loan capital transfer' },
       { id: 'new-acct', group: 'Create', label: 'Bank account, card or cash', icon: Landmark, run: act(() => nav.open({ type: 'account' })), keywords: 'bank account cash wallet card' },
+      { id: 'sip', group: 'Create', label: 'SIP / investment', icon: TrendingUp, run: act(() => nav.open({ type: 'sip' })), keywords: 'sip mutual fund invest investment' },
       { id: 'move', group: 'Create', label: 'Move money between my accounts', icon: Repeat, run: act(() => nav.open({ type: 'move' })), keywords: 'atm withdraw deposit card bill transfer' },
       { id: 'new-inv', group: 'Create', label: 'Invoice', icon: FileText, run: act(() => nav.open({ type: 'invoice' })), keywords: 'bill client gst tax invoice' },
       { id: 'import', group: 'Create', label: 'Import a bank statement', icon: FileUp, run: act(() => nav.open({ type: 'import' })), keywords: 'csv upload bank statement' },

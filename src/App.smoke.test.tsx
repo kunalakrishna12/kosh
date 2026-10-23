@@ -74,7 +74,7 @@ describe('app smoke test', () => {
     ['Budgets', 'Budgeted'],
     ['Documents', 'Expiring soon'],
     ['Settings', 'Company details for invoices'],
-    ['Overview', 'Bills due soon'],
+    ['Overview', 'Due soon'],
   ])('renders %s', async (label, text) => {
     await click(navButton(label));
     expect(container.querySelector('.top h1')?.textContent).toBe(label);
@@ -168,6 +168,32 @@ describe('app smoke test', () => {
     await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Move money between accounts')));
     expect(document.querySelector('.modal-h h2')?.textContent).toBe('Move money between accounts');
     await closeModal();
+  });
+
+  it('adds a SIP into a new fund and marks it done', async () => {
+    await click(navButton('Accounts & cash'));
+    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.trim() === 'SIP'));
+    expect(document.querySelector('.modal-h h2')?.textContent).toBe('New SIP');
+    const setValue = async (el: HTMLInputElement, v: string) =>
+      act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, v);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    const inputs = document.querySelectorAll<HTMLInputElement>('#sip-form input');
+    await setValue(inputs[0], 'Test Small Cap Fund');
+    await setValue(inputs[1], '1500');
+    const select = [...document.querySelectorAll<HTMLSelectElement>('#sip-form select')].find((x) => [...x.options].some((o) => o.value === 'new'))!;
+    await act(async () => {
+      select.value = 'new';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(document.querySelector('.modal-f .btn.primary'));
+    expect(document.querySelector('.modal')).toBeNull();
+    expect(container.textContent).toContain('Test Small Cap Fund');
+    const row = [...container.querySelectorAll('.row')].find((r) => r.textContent?.startsWith('Test Small Cap Fund ·'))!;
+    await click([...row.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Done')));
+    const card = [...container.querySelectorAll('.acct-card')].find((c) => c.textContent?.includes('Test Small Cap Fund'))!;
+    expect(card.querySelector('.stat-v')?.textContent).toBe('₹1,500');
   });
 
   it('logged no errors', () => {

@@ -1,10 +1,11 @@
 import { accountBalances } from './analytics';
-import { isoDate, lastMonths } from './dates';
-import type { Account, Book, VaultData } from './types';
+import { advance } from './bills';
+import { addDays, isoDate, lastMonths, today } from './dates';
+import type { Account, Book, Move, Sip, VaultData } from './types';
 
 export const ACCOUNT_COLORS = ['#3b82f6', '#16a394', '#d9822b', '#7c6cff', '#d6455d', '#0891b2', '#65a30d', '#c026d3'];
 
-const KIND_ORDER = { current: 0, savings: 1, card: 2, wallet: 3, cash: 4, deposit: 5 };
+const KIND_ORDER = { current: 0, savings: 1, card: 2, wallet: 3, cash: 4, deposit: 5, investment: 6 };
 
 export function activeAccounts(data: VaultData, book?: Book): Account[] {
   return data.accounts.filter((a) => !a.archived && (!book || a.book === book)).sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.name.localeCompare(b.name));
@@ -42,4 +43,55 @@ export function accountFromStatement(data: VaultData, headerRows: string[][]): A
     const n = a.number.replace(/\s/g, '');
     return n.length >= 4 && (text.includes(n) || new RegExp(`[X*x]+${n.slice(-4)}`).test(text));
   });
+}
+
+/* ───────── Investments & SIPs ───────── */
+
+export interface InvestmentStats {
+  /** Money you put in (opening amount plus everything moved in, minus withdrawals). */
+  invested: number;
+  /** What it's worth: the account balance, including value updates. */
+  value: number;
+  gain: number;
+  /** gain / invested */
+  returnPct: number | null;
+}
+
+/** Value updates are stored as adjustment entries, so invested = value − adjustments. */
+export function investmentStats(data: VaultData, accountId: string, asOf = today()): InvestmentStats {
+  const value = accountBalances(data, asOf).byAccount.get(accountId) ?? 0;
+  const gain = data.transactions
+    .filter((t) => t.accountId === accountId && t.adjustment && t.date <= asOf)
+    .reduce((s, t) => s + (t.kind === 'income' ? t.amount : -t.amount), 0);
+  const invested = value - gain;
+  return { invested, value, gain, returnPct: invested > 0 ? gain / invested : null };
+}
+
+export function investmentTotals(data: VaultData, book?: Book): InvestmentStats {
+  const t = { invested: 0, value: 0, gain: 0 };
+  for (const a of activeAccounts(data, book).filter((x) => x.kind === 'investment')) {
+    const s = investmentStats(data, a.id);
+    t.invested += s.invested;
+    t.value += s.value;
+    t.gain += s.gain;
+  }
+  return { ...t, returnPct: t.invested > 0 ? t.gain / t.invested : null };
+}
+
+/** Active SIPs due on or before `until` (overdue ones included). */
+export function sipsDue(data: VaultData, until = addDays(today(), 7)): Sip[] {
+  return data.sips.filter((s) => s.active && s.nextDue <= until).sort((a, b) => (a.nextDue < b.nextDue ? -1 : 1));
+}
+
+/** Monthly equivalent of all active SIPs. */
+export function monthlySipTotal(data: VaultData): number {
+  const per = { weekly: 52 / 12, monthly: 1, quarterly: 1 / 3 };
+  return Math.round(data.sips.filter((s) => s.active).reduce((sum, s) => sum + s.amount * per[s.frequency], 0));
+}
+
+/** Records one SIP instalment as a move and rolls the SIP to its next date. */
+export function paySip(data: VaultData, sip: Sip, date: string, amount = sip.amount): VaultData {
+  const fund = data.accounts.find((a) => a.id === sip.toAccountId);
+  const move: Move = { id: crypto.randomUUID(), from: sip.fromAccountId, to: sip.toAccountId, amount, date, note: `SIP · ${sip.name || fund?.name || 'investment'}`, sipId: sip.id, createdAt: Date.now() };
+  return { ...data, moves: [move, ...data.moves], sips: data.sips.map((s) => (s.id === sip.id ? { ...s, nextDue: advance(s.nextDue, s.frequency) } : s)) };
 }

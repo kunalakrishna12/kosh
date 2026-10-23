@@ -1,6 +1,6 @@
 import { ArrowLeftRight, FileBarChart, Landmark, FileText, FolderKanban, FolderLock, Gauge, KeyRound, LayoutGrid, Receipt, Settings, Sparkles, Wallet, type LucideIcon } from 'lucide-react';
 import { createContext, useContext } from 'react';
-import type { Account, Bill, Book, Budget, DocFolder, Invoice, Move, Project, Secret, Transaction, Transfer } from './lib/types';
+import type { Account, Bill, Book, Budget, DocFolder, Invoice, Move, Project, Secret, Sip, Transaction, Transfer } from './lib/types';
 
 export type View = 'overview' | 'money' | 'accounts' | 'bills' | 'invoices' | 'projects' | 'owner' | 'budgets' | 'reports' | 'insights' | 'vault' | 'documents' | 'settings';
 
@@ -36,6 +36,7 @@ export type Dialog =
   | { type: 'import' }
   | { type: 'account'; initial?: Account; defaults?: { book?: Book } }
   | { type: 'move'; initial?: Move; defaults?: { from?: string; to?: string } }
+  | { type: 'sip'; initial?: Sip }
   | { type: 'upload'; files: File[]; defaults?: { folder?: DocFolder; book?: Book; linkId?: string } };
 
 export interface Nav {

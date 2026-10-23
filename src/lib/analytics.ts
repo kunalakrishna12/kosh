@@ -332,6 +332,14 @@ export function insights(data: VaultData, fmt: (minor: number) => string, end = 
     });
   }
 
+  for (const sip of data.sips.filter((s) => s.active && s.nextDue <= addDays(end, 3)).slice(0, 3)) {
+    out.push({
+      tone: sip.nextDue < end ? 'warn' : 'info',
+      title: `SIP ${sip.nextDue < end ? 'pending' : 'due'}: ${sip.name} · ${fmt(sip.amount)}`,
+      detail: sip.autopay ? 'Auto-debit is on. Mark it done once it leaves your bank.' : 'Pay it in your app, then mark it done in Accounts.',
+    });
+  }
+
   const b = balances(data, end);
   if (b.owedToYou > 0) {
     out.push({ tone: 'info', title: `${names.company} owes you ${fmt(b.owedToYou)}`, detail: 'Loans and company bills you paid personally, not yet paid back.' });

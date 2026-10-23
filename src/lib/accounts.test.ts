@@ -78,3 +78,31 @@ describe('account helpers', () => {
     expect(accountFromStatement(v, [['Statement of account']])).toBeUndefined();
   });
 });
+
+describe('investments and SIPs', () => {
+  const base = () => ({
+    ...emptyVault(),
+    accounts: [acc('bank', { opening: 50_000 }), acc('fund', { kind: 'investment', opening: 10_000 })],
+    sips: [{ id: 's', name: 'Flexi Cap', fromAccountId: 'bank', toAccountId: 'fund', amount: 1_500, frequency: 'monthly' as const, nextDue: '2026-01-05', autopay: true, active: true, createdAt: 0 }],
+  });
+
+  it('marking a SIP done moves the money and rolls the date', async () => {
+    const { paySip } = await import('./accounts');
+    const v = paySip(base(), base().sips[0], '2026-01-05');
+    expect(v.sips[0].nextDue).toBe('2026-02-05');
+    expect(v.moves).toHaveLength(1);
+    expect(v.moves[0]).toMatchObject({ from: 'bank', to: 'fund', amount: 1_500, sipId: 's' });
+    const b = accountBalances(v, '2026-12-31').byAccount;
+    expect(b.get('bank')).toBe(48_500);
+    expect(b.get('fund')).toBe(11_500);
+    // Savings, not spending.
+    expect(flow(v, 'personal')).toEqual({ income: 0, expense: 0 });
+  });
+
+  it('separates what you invested from what it is worth', async () => {
+    const { investmentStats, monthlySipTotal } = await import('./accounts');
+    const v = { ...base(), transactions: [tx({ accountId: 'fund', kind: 'income', amount: 2_000, adjustment: true })] };
+    expect(investmentStats(v, 'fund', '2026-12-31')).toEqual({ invested: 10_000, value: 12_000, gain: 2_000, returnPct: 0.2 });
+    expect(monthlySipTotal(v)).toBe(1_500);
+  });
+});
