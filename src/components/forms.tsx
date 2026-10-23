@@ -1,0 +1,874 @@
+import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { today } from '../lib/dates';
+import { toInput, toMinor } from '../lib/money';
+import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
+import { advance } from '../lib/bills';
+import { taxPart } from '../lib/reports';
+import type { TxDefaults } from '../nav';
+import {
+  BILL_KIND_LABEL,
+  DEFAULT_CATEGORIES,
+  FREQUENCY_LABEL,
+  PROJECT_COLORS,
+  TAX_RATES,
+  type Bill,
+  type BillFrequency,
+  type BillKind,
+  TO_COMPANY,
+  TO_PERSONAL,
+  TRANSFER_LABEL,
+  type Book,
+  type Project,
+  type ProjectStatus,
+  type Secret,
+  type Transaction,
+  type Transfer,
+  type TransferReason,
+  type TxKind,
+} from '../lib/types';
+import { useVault } from '../store';
+import { Field, Modal, Seg, useCopy, useToast } from './ui';
+
+const uid = () => crypto.randomUUID();
+
+function AmountInput({ value, onChange, symbol }: { value: string; onChange: (v: string) => void; symbol: string }) {
+  return (
+    <div className="amount-wrap">
+      <span className="cur">{symbol}</span>
+      <input
+        className="input amount-input"
+        inputMode="decimal"
+        placeholder="0"
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
+        aria-label="Amount"
+        autoFocus
+      />
+    </div>
+  );
+}
+
+function DeleteButton({ onDelete, what }: { onDelete: () => void; what: string }) {
+  const [sure, setSure] = useState(false);
+  return (
+    <button type="button" className={`btn danger ${sure ? 'solid' : 'ghost'}`} onClick={() => (sure ? onDelete() : setSure(true))}>
+      <Trash2 size={15} />
+      {sure ? `Delete ${what}?` : 'Delete'}
+    </button>
+  );
+}
+
+export const BookLabel = ({ book }: { book: Book }) => (
+  <>
+    {book === 'personal' ? <User size={14} /> : <Briefcase size={14} />}
+    {book === 'personal' ? 'Personal' : 'Company'}
+  </>
+);
+
+/* ───────── Transaction ───────── */
+
+export function TxForm({
+  initial,
+  defaults,
+  onClose,
+}: {
+  initial?: Transaction;
+  defaults?: TxDefaults;
+  onClose: () => void;
+}) {
+  const { data, update, money } = useVault();
+  const toast = useToast();
+  const [book, setBook] = useState<Book>(initial?.book ?? defaults?.book ?? 'personal');
+  const [kind, setKind] = useState<TxKind>(initial?.kind ?? defaults?.kind ?? 'expense');
+  const [amount, setAmount] = useState(initial ? toInput(initial.amount) : defaults?.amount ? toInput(defaults.amount) : '');
+  const [category, setCategory] = useState(initial?.category ?? defaults?.category ?? '');
+  const [date, setDate] = useState(initial?.date ?? today());
+  const [note, setNote] = useState(initial?.note ?? defaults?.note ?? '');
+  const [taxRate, setTaxRate] = useState(initial?.taxRate ?? defaults?.taxRate ?? 0);
+  const billId = initial?.billId ?? defaults?.billId;
+  const bill = billId ? data.bills.find((b) => b.id === billId) : undefined;
+  const [projectId, setProjectId] = useState(initial?.projectId ?? defaults?.projectId ?? '');
+  const [paidPersonally, setPaidPersonally] = useState(initial?.paidPersonally ?? false);
+  const [error, setError] = useState('');
+
+  const categories = useMemo(() => {
+    const used = data.transactions.filter((t) => t.book === book && t.kind === kind).map((t) => t.category);
+    return [...new Set([...DEFAULT_CATEGORIES[book][kind], ...used])];
+  }, [data.transactions, book, kind]);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const minor = toMinor(amount);
+    if (!minor) return setError('Enter an amount greater than zero.');
+    const tx: Transaction = {
+      id: initial?.id ?? uid(),
+      createdAt: initial?.createdAt ?? Date.now(),
+      book,
+      kind,
+      amount: minor,
+      category: category.trim() || 'Other',
+      date,
+      note: note.trim(),
+      ...(book === 'company' && projectId ? { projectId } : {}),
+      ...(book === 'company' && kind === 'expense' && paidPersonally ? { paidPersonally: true } : {}),
+      ...(billId ? { billId } : {}),
+      ...(taxRate ? { taxRate } : {}),
+    };
+    update((d) => ({
+      ...d,
+      transactions: initial ? d.transactions.map((t) => (t.id === tx.id ? tx : t)) : [tx, ...d.transactions],
+      // Paying a bill moves it on to its next due date, and remembers the latest amount.
+      bills:
+        !initial && billId
+          ? d.bills.map((b) => (b.id === billId ? { ...b, nextDue: advance(b.nextDue, b.frequency), amount: b.variable ? minor : b.amount } : b))
+          : d.bills,
+    }));
+    toast(initial ? 'Entry updated' : bill ? `${bill.name} marked paid` : `${kind === 'income' ? 'Income' : 'Expense'} added`);
+    onClose();
+  };
+
+  const remove = () => {
+    update((d) => ({ ...d, transactions: d.transactions.filter((t) => t.id !== initial!.id) }));
+    toast('Entry deleted');
+    onClose();
+  };
+
+  const activeProjects = data.projects.filter((p) => p.status !== 'done' || p.id === projectId);
+
+  return (
+    <Modal
+      title={initial ? 'Edit entry' : bill ? `Pay ${bill.name}` : 'New entry'}
+      onClose={onClose}
+      footer={
+        <>
+          {initial && <DeleteButton onDelete={remove} what="entry" />}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="tx-form">
+              {initial ? 'Save' : 'Add'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id="tx-form" className="stack" onSubmit={submit}>
+        <div className="row between wrap">
+          <Seg
+            label="Book"
+            value={book}
+            onChange={setBook}
+            options={[
+              { value: 'personal', label: <BookLabel book="personal" /> },
+              { value: 'company', label: <BookLabel book="company" /> },
+            ]}
+          />
+          <Seg
+            label="Kind"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'expense', label: <><ArrowUpRight size={14} /> Expense</> },
+              { value: 'income', label: <><ArrowDownLeft size={14} /> Income</> },
+            ]}
+          />
+        </div>
+        <AmountInput value={amount} onChange={(v) => (setAmount(v), setError(''))} symbol={money.symbol} />
+        {error && <div className="error-text">{error}</div>}
+        <div className="form-grid">
+          <Field label="Category">
+            <input className="input" list="tx-cats" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={categories[0]} />
+            <datalist id="tx-cats">
+              {categories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="Date">
+            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} required />
+          </Field>
+          <Field label="Note" className="full">
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={kind === 'expense' ? 'What was it for?' : 'Who paid you?'} />
+          </Field>
+          {book === 'company' && (
+            <Field
+              label={kind === 'income' ? 'GST / VAT charged (included)' : 'GST / VAT paid (included)'}
+              hint={taxRate && toMinor(amount) ? `${money.full(taxPart(toMinor(amount)!, taxRate))} of this is tax` : 'Used for the tax summary in Reports.'}
+            >
+              <select className="select" value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))}>
+                {TAX_RATES.map((r) => (
+                  <option key={r} value={r}>
+                    {r ? `${r}%` : 'No tax'}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {book === 'company' && (
+            <Field label="Project">
+              <select className="select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">No project</option>
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.client ? ` · ${p.client}` : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+          {book === 'company' && kind === 'expense' && (
+            <label className="check full">
+              <input type="checkbox" checked={paidPersonally} onChange={(e) => setPaidPersonally(e.target.checked)} />
+              <span>
+                I paid this with my own money
+                <br />
+                <small className="faint">It comes out of your personal cash, and the company owes it back to you.</small>
+              </span>
+            </label>
+          )}
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ───────── Transfer (you ↔ company) ───────── */
+
+export function TransferForm({ initial, onClose }: { initial?: Transfer; onClose: () => void }) {
+  const { data, update, money } = useVault();
+  const toast = useToast();
+  const [dir, setDir] = useState<'in' | 'out'>(initial ? (TO_COMPANY.includes(initial.reason) ? 'in' : 'out') : 'out');
+  const [reason, setReason] = useState<TransferReason>(initial?.reason ?? 'salary');
+  const [amount, setAmount] = useState(initial ? toInput(initial.amount) : '');
+  const [date, setDate] = useState(initial?.date ?? today());
+  const [note, setNote] = useState(initial?.note ?? '');
+  const [error, setError] = useState('');
+  const company = data.settings.companyName || 'Company';
+
+  const reasons = dir === 'in' ? TO_COMPANY : TO_PERSONAL;
+  const pickDir = (d: 'in' | 'out') => {
+    setDir(d);
+    setReason(d === 'in' ? 'capital' : 'salary');
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const minor = toMinor(amount);
+    if (!minor) return setError('Enter an amount greater than zero.');
+    const t: Transfer = { id: initial?.id ?? uid(), createdAt: initial?.createdAt ?? Date.now(), reason, amount: minor, date, note: note.trim() };
+    update((d) => ({ ...d, transfers: initial ? d.transfers.map((x) => (x.id === t.id ? t : x)) : [t, ...d.transfers] }));
+    toast(initial ? 'Transfer updated' : 'Transfer recorded');
+    onClose();
+  };
+
+  const help: Record<TransferReason, string> = {
+    capital: 'Equity you put into the business. Not paid back.',
+    loan: 'Money the company must pay back to you.',
+    salary: 'Counts as your personal income and a company expense.',
+    dividend: 'A share of profit. Personal income, not a company expense.',
+    repayment: 'The company paying back a loan you gave it.',
+    reimbursement: 'Paying you back for company bills you covered.',
+  };
+
+  return (
+    <Modal
+      title={initial ? 'Edit transfer' : 'Move money'}
+      onClose={onClose}
+      footer={
+        <>
+          {initial && (
+            <DeleteButton
+              what="transfer"
+              onDelete={() => {
+                update((d) => ({ ...d, transfers: d.transfers.filter((x) => x.id !== initial.id) }));
+                toast('Transfer deleted');
+                onClose();
+              }}
+            />
+          )}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="tr-form">
+              {initial ? 'Save' : 'Record'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id="tr-form" className="stack" onSubmit={submit}>
+        <Seg
+          label="Direction"
+          value={dir}
+          onChange={pickDir}
+          options={[
+            { value: 'out', label: <>{company} → You</> },
+            { value: 'in', label: <>You → {company}</> },
+          ]}
+        />
+        <AmountInput value={amount} onChange={(v) => (setAmount(v), setError(''))} symbol={money.symbol} />
+        {error && <div className="error-text">{error}</div>}
+        <div className="form-grid">
+          <Field label="Type" hint={help[reason]} className="full">
+            <select className="select" value={reason} onChange={(e) => setReason(e.target.value as TransferReason)}>
+              {reasons.map((r) => (
+                <option key={r} value={r}>
+                  {TRANSFER_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Date">
+            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+          </Field>
+          <Field label="Note">
+            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+          </Field>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/* ───────── Project ───────── */
+
+export function ProjectForm({ initial, onClose }: { initial?: Project; onClose: () => void }) {
+  const { data, update, money } = useVault();
+  const toast = useToast();
+  const [name, setName] = useState(initial?.name ?? '');
+  const [client, setClient] = useState(initial?.client ?? '');
+  const [contract, setContract] = useState(initial ? toInput(initial.contract) : '');
+  const [budget, setBudget] = useState(initial ? toInput(initial.budget) : '');
+  const [status, setStatus] = useState<ProjectStatus>(initial?.status ?? 'active');
+  const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[data.projects.length % PROJECT_COLORS.length]);
+  const [startDate, setStartDate] = useState(initial?.startDate ?? today());
+  const [error, setError] = useState('');
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return setError('Give the project a name.');
+    const p: Project = {
+      id: initial?.id ?? uid(),
+      createdAt: initial?.createdAt ?? Date.now(),
+      name: name.trim(),
+      client: client.trim(),
+      contract: toMinor(contract) ?? 0,
+      budget: toMinor(budget) ?? 0,
+      status,
+      color,
+      startDate,
+    };
+    update((d) => ({ ...d, projects: initial ? d.projects.map((x) => (x.id === p.id ? p : x)) : [p, ...d.projects] }));
+    toast(initial ? 'Project updated' : 'Project created');
+    onClose();
+  };
+
+  const remove = () => {
+    update((d) => ({
+      ...d,
+      projects: d.projects.filter((x) => x.id !== initial!.id),
+      transactions: d.transactions.map((t) => (t.projectId === initial!.id ? { ...t, projectId: undefined } : t)),
+    }));
+    toast('Project deleted · its entries were kept');
+    onClose();
+  };
+
+  return (
+    <Modal
+      title={initial ? 'Edit project' : 'New project'}
+      onClose={onClose}
+      footer={
+        <>
+          {initial && <DeleteButton onDelete={remove} what="project" />}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="pr-form">
+              {initial ? 'Save' : 'Create'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id="pr-form" className="form-grid" onSubmit={submit}>
+        <Field label="Project name" className="full">
+          <input className="input" value={name} onChange={(e) => (setName(e.target.value), setError(''))} placeholder="Website rebuild" autoFocus />
+        </Field>
+        <Field label="Client">
+          <input className="input" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Acme Corp" />
+        </Field>
+        <Field label="Start date">
+          <input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value || today())} />
+        </Field>
+        <Field label={`Contract value (${money.symbol})`} hint="What the client pays you in total.">
+          <input className="input num" inputMode="decimal" value={contract} onChange={(e) => setContract(e.target.value)} placeholder="0" />
+        </Field>
+        <Field label={`Delivery budget (${money.symbol})`} hint="What you plan to spend doing it.">
+          <input className="input num" inputMode="decimal" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="0" />
+        </Field>
+        <Field label="Status">
+          <select className="select" value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)}>
+            <option value="active">Active</option>
+            <option value="paused">Paused</option>
+            <option value="done">Done</option>
+          </select>
+        </Field>
+        <div className="field">
+          <span>Colour</span>
+          <div className="row" style={{ height: 40 }}>
+            {PROJECT_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Colour ${c}`}
+                aria-pressed={c === color}
+                onClick={() => setColor(c)}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 7,
+                  border: 0,
+                  background: c,
+                  boxShadow: c === color ? `0 0 0 2px var(--surface), 0 0 0 4px ${c}` : 'none',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        {error && <div className="error-text full">{error}</div>}
+      </form>
+    </Modal>
+  );
+}
+
+/* ───────── Password strength meter ───────── */
+
+const STRENGTH_COLORS = ['var(--expense)', 'var(--expense)', 'var(--warn)', 'var(--income)', 'var(--income)'];
+
+export function StrengthMeter({ password }: { password: string }) {
+  const s = strength(password);
+  const filled = password ? Math.max(1, s.score) : 0;
+  return (
+    <div>
+      <div className="meter" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <i key={i} style={{ background: i < filled ? STRENGTH_COLORS[s.score] : undefined }} />
+        ))}
+      </div>
+      {password && (
+        <div className="row between" style={{ fontSize: 12, marginTop: 6 }}>
+          <span style={{ color: STRENGTH_COLORS[s.score], fontWeight: 600 }}>{s.label}</span>
+          <span className="faint">{s.hint}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────── Generator ───────── */
+
+export function ColoredPassword({ value }: { value: string }) {
+  return (
+    <>
+      {[...value].map((ch, i) => (
+        <span key={i} className={/\d/.test(ch) ? 'pw-char-d' : /[^a-zA-Z0-9]/.test(ch) ? 'pw-char-s' : undefined}>
+          {ch}
+        </span>
+      ))}
+    </>
+  );
+}
+
+export function GeneratorPanel({ onUse }: { onUse?: (pw: string) => void }) {
+  const copy = useCopy();
+  const [o, setO] = useState<GenOptions>(DEFAULT_GEN);
+  const [pw, setPw] = useState(() => generatePassword(DEFAULT_GEN));
+  const set = (patch: Partial<GenOptions>) => {
+    const next = { ...o, ...patch };
+    setO(next);
+    setPw(generatePassword(next));
+  };
+  return (
+    <div className="stack">
+      <div className="gen-out">
+        <span>
+          <ColoredPassword value={pw} />
+        </span>
+        <button type="button" className="icon-btn" onClick={() => setPw(generatePassword(o))} aria-label="Generate another">
+          <RefreshCw size={16} />
+        </button>
+        <button type="button" className="icon-btn" onClick={() => copy(pw, 'Password', true)} aria-label="Copy">
+          <Copy size={16} />
+        </button>
+      </div>
+      <StrengthMeter password={pw} />
+      <Field label={`Length · ${o.length}`}>
+        <input className="range" type="range" min={8} max={64} value={o.length} onChange={(e) => set({ length: Number(e.target.value) })} />
+      </Field>
+      <div className="grid g-2" style={{ gap: 10 }}>
+        {(
+          [
+            ['upper', 'A–Z uppercase'],
+            ['lower', 'a–z lowercase'],
+            ['digits', '0–9 digits'],
+            ['symbols', '!@# symbols'],
+            ['avoidAmbiguous', 'Avoid look-alikes (l, I, O, 0)'],
+          ] as [keyof GenOptions, string][]
+        ).map(([k, label]) => (
+          <label key={k} className="check">
+            <input type="checkbox" checked={o[k] as boolean} onChange={(e) => set({ [k]: e.target.checked })} />
+            {label}
+          </label>
+        ))}
+      </div>
+      {onUse && (
+        <button type="button" className="btn primary" onClick={() => onUse(pw)}>
+          <Wand2 size={15} /> Use this password
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function GeneratorModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal title="Password generator" onClose={onClose}>
+      <GeneratorPanel />
+    </Modal>
+  );
+}
+
+/* ───────── Secret ───────── */
+
+export function SecretForm({ initial, defaults, onClose }: { initial?: Secret; defaults?: { book?: Book }; onClose: () => void }) {
+  const { update } = useVault();
+  const toast = useToast();
+  const [book, setBook] = useState<Book>(initial?.book ?? defaults?.book ?? 'personal');
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [username, setUsername] = useState(initial?.username ?? '');
+  const [password, setPassword] = useState(initial?.password ?? '');
+  const [url, setUrl] = useState(initial?.url ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [tags, setTags] = useState(initial?.tags.join(', ') ?? '');
+  const [show, setShow] = useState(!initial);
+  const [gen, setGen] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return setError('Give it a name, like "GitHub".');
+    const now = Date.now();
+    const changed = !initial || initial.password !== password;
+    const s: Secret = {
+      id: initial?.id ?? uid(),
+      createdAt: initial?.createdAt ?? now,
+      updatedAt: now,
+      book,
+      title: title.trim(),
+      username: username.trim(),
+      password,
+      url: url.trim(),
+      notes,
+      tags: tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+      favorite: initial?.favorite ?? false,
+      passwordChangedAt: changed ? now : initial!.passwordChangedAt,
+      history:
+        initial && changed && initial.password
+          ? [{ password: initial.password, changedAt: initial.passwordChangedAt }, ...initial.history].slice(0, 10)
+          : initial?.history ?? [],
+    };
+    update((d) => ({ ...d, secrets: initial ? d.secrets.map((x) => (x.id === s.id ? s : x)) : [s, ...d.secrets] }));
+    toast(initial ? 'Login updated' : 'Login saved');
+    onClose();
+  };
+
+  return (
+    <Modal
+      title={initial ? 'Edit login' : 'New login'}
+      onClose={onClose}
+      footer={
+        <>
+          {initial && (
+            <DeleteButton
+              what="login"
+              onDelete={() => {
+                update((d) => ({ ...d, secrets: d.secrets.filter((x) => x.id !== initial.id) }));
+                toast('Login deleted');
+                onClose();
+              }}
+            />
+          )}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="sec-form">
+              {initial ? 'Save' : 'Save login'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id="sec-form" className="form-grid" onSubmit={submit} autoComplete="off">
+        <div className="full">
+          <Seg
+            label="Belongs to"
+            value={book}
+            onChange={setBook}
+            options={[
+              { value: 'personal', label: <BookLabel book="personal" /> },
+              { value: 'company', label: <BookLabel book="company" /> },
+            ]}
+          />
+        </div>
+        <Field label="Name">
+          <input className="input" value={title} onChange={(e) => (setTitle(e.target.value), setError(''))} placeholder="GitHub" autoFocus />
+        </Field>
+        <Field label="Website">
+          <input className="input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com" />
+        </Field>
+        <Field label="Username or email" className="full">
+          <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
+        </Field>
+        <div className="field full">
+          <span>Password</span>
+          <div className="input-wrap">
+            <input
+              className="input mono"
+              type={show ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              spellCheck={false}
+            />
+            <div className="addons">
+              <button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+              <button type="button" className="icon-btn" onClick={() => setGen(!gen)} aria-label="Generate password">
+                <Dices size={16} />
+              </button>
+            </div>
+          </div>
+          <StrengthMeter password={password} />
+        </div>
+        {gen && (
+          <div className="full card" style={{ background: 'var(--bg-2)' }}>
+            <GeneratorPanel
+              onUse={(pw) => {
+                setPassword(pw);
+                setShow(true);
+                setGen(false);
+              }}
+            />
+          </div>
+        )}
+        <Field label="Tags" hint="Separate with commas." className="full">
+          <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="bank, admin" />
+        </Field>
+        <Field label="Notes" className="full">
+          <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Recovery codes, security questions…" />
+        </Field>
+        {error && <div className="error-text full">{error}</div>}
+      </form>
+    </Modal>
+  );
+}
+
+/* ───────── Bill ───────── */
+
+const KIND_CATEGORY: Record<BillKind, Record<Book, string>> = {
+  cloud: { company: 'Cloud', personal: 'Subscriptions' },
+  api: { company: 'APIs', personal: 'Subscriptions' },
+  saas: { company: 'Software', personal: 'Subscriptions' },
+  rent: { company: 'Rent', personal: 'Rent' },
+  utility: { company: 'Utilities', personal: 'Utilities' },
+  payroll: { company: 'Payroll', personal: 'Other' },
+  tax: { company: 'Legal & Tax', personal: 'Other' },
+  insurance: { company: 'Insurance', personal: 'Insurance' },
+  loan: { company: 'Other', personal: 'Loan EMI' },
+  other: { company: 'Other', personal: 'Other' },
+};
+
+export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defaults?: { book?: Book }; onClose: () => void }) {
+  const { data, update, money } = useVault();
+  const toast = useToast();
+  const [book, setBook] = useState<Book>(initial?.book ?? defaults?.book ?? 'company');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [vendor, setVendor] = useState(initial?.vendor ?? '');
+  const [kind, setKind] = useState<BillKind>(initial?.kind ?? 'saas');
+  const [amount, setAmount] = useState(initial ? toInput(initial.amount) : '');
+  const [variable, setVariable] = useState(initial?.variable ?? false);
+  const [frequency, setFrequency] = useState<BillFrequency>(initial?.frequency ?? 'monthly');
+  const [nextDue, setNextDue] = useState(initial?.nextDue ?? today());
+  const [category, setCategory] = useState(initial?.category ?? '');
+  const [projectId, setProjectId] = useState(initial?.projectId ?? '');
+  const [taxRate, setTaxRate] = useState(initial?.taxRate ?? 0);
+  const [autopay, setAutopay] = useState(initial?.autopay ?? false);
+  const [active, setActive] = useState(initial?.active ?? true);
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [error, setError] = useState('');
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return setError('Give the bill a name, like "AWS".');
+    const minor = toMinor(amount);
+    if (!minor) return setError(variable ? 'Enter a rough estimate. You can change it each time you pay.' : 'Enter the amount.');
+    const b: Bill = {
+      id: initial?.id ?? uid(),
+      createdAt: initial?.createdAt ?? Date.now(),
+      book,
+      name: name.trim(),
+      vendor: vendor.trim(),
+      kind,
+      amount: minor,
+      variable,
+      frequency,
+      nextDue,
+      category: category.trim() || KIND_CATEGORY[kind][book],
+      ...(book === 'company' && projectId ? { projectId } : {}),
+      ...(taxRate ? { taxRate } : {}),
+      autopay,
+      active,
+      notes,
+    };
+    update((d) => ({ ...d, bills: initial ? d.bills.map((x) => (x.id === b.id ? b : x)) : [b, ...d.bills] }));
+    toast(initial ? 'Bill updated' : 'Bill added');
+    onClose();
+  };
+
+  return (
+    <Modal
+      title={initial ? 'Edit bill' : 'New recurring bill'}
+      onClose={onClose}
+      footer={
+        <>
+          {initial && (
+            <DeleteButton
+              what="bill"
+              onDelete={() => {
+                update((d) => ({
+                  ...d,
+                  bills: d.bills.filter((x) => x.id !== initial.id),
+                  transactions: d.transactions.map((t) => (t.billId === initial.id ? { ...t, billId: undefined } : t)),
+                }));
+                toast('Bill deleted · past payments were kept');
+                onClose();
+              }}
+            />
+          )}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="bill-form">
+              {initial ? 'Save' : 'Add bill'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id="bill-form" className="form-grid" onSubmit={submit}>
+        <div className="full">
+          <Seg
+            label="Paid by"
+            value={book}
+            onChange={setBook}
+            options={[
+              { value: 'company', label: <BookLabel book="company" /> },
+              { value: 'personal', label: <BookLabel book="personal" /> },
+            ]}
+          />
+        </div>
+        <Field label="Name">
+          <input className="input" value={name} onChange={(e) => (setName(e.target.value), setError(''))} placeholder="AWS, OpenAI API, Office rent…" autoFocus />
+        </Field>
+        <Field label="Vendor">
+          <input className="input" value={vendor} onChange={(e) => setVendor(e.target.value)} placeholder="Who you pay" />
+        </Field>
+        <Field label="Type">
+          <select className="select" value={kind} onChange={(e) => setKind(e.target.value as BillKind)}>
+            {(Object.keys(BILL_KIND_LABEL) as BillKind[]).map((k) => (
+              <option key={k} value={k}>
+                {BILL_KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Repeats">
+          <select className="select" value={frequency} onChange={(e) => setFrequency(e.target.value as BillFrequency)}>
+            {(Object.keys(FREQUENCY_LABEL) as BillFrequency[]).map((f) => (
+              <option key={f} value={f}>
+                {FREQUENCY_LABEL[f]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={`${variable ? 'Estimated amount' : 'Amount'} (${money.symbol})`}>
+          <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" />
+        </Field>
+        <Field label="Next due">
+          <input className="input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value || today())} />
+        </Field>
+        <label className="check full">
+          <input type="checkbox" checked={variable} onChange={(e) => setVariable(e.target.checked)} />
+          <span>
+            Usage-based amount
+            <br />
+            <small className="faint">For cloud and API bills that change every month. You enter the real amount when you pay, and Kosh flags big jumps.</small>
+          </span>
+        </label>
+        <Field label="Category">
+          <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={KIND_CATEGORY[kind][book]} />
+        </Field>
+        {book === 'company' ? (
+          <Field label="GST / VAT included">
+            <select className="select" value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))}>
+              {TAX_RATES.map((r) => (
+                <option key={r} value={r}>
+                  {r ? `${r}%` : 'No tax'}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <div />
+        )}
+        {book === 'company' && data.projects.length > 0 && (
+          <Field label="Charge to project" className="full">
+            <select className="select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">No project</option>
+              {data.projects
+                .filter((p) => p.status !== 'done' || p.id === projectId)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          </Field>
+        )}
+        <label className="check">
+          <input type="checkbox" checked={autopay} onChange={(e) => setAutopay(e.target.checked)} />
+          Paid automatically (card / mandate)
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+          Active
+        </label>
+        <Field label="Notes" className="full">
+          <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Account ID, card used, cancellation link…" />
+        </Field>
+        {error && <div className="error-text full">{error}</div>}
+      </form>
+    </Modal>
+  );
+}
