@@ -18,6 +18,16 @@ beforeAll(async () => {
   window.scrollTo = () => {};
   Element.prototype.scrollTo = () => {};
   Element.prototype.scrollIntoView = () => {};
+  URL.createObjectURL = () => 'blob:mock';
+  URL.revokeObjectURL = () => {};
+  // jsdom's Blob lacks text(), which every browser has.
+  Blob.prototype.text ??= function (this: Blob) {
+    return new Promise<string>((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.readAsText(this);
+    });
+  };
   window.addEventListener('error', (e) => errors.push(e.error));
   vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(args));
   history.replaceState(null, '', '/?demo#overview');
@@ -59,7 +69,10 @@ describe('app smoke test', () => {
     ['Reports & tax', 'Profit & loss'],
     ['Insights', 'Observations'],
     ['Passwords', 'health'],
-    ['Settings', 'Financial year'],
+    ['Invoices', 'Waiting to be paid'],
+    ['Budgets', 'Budgeted'],
+    ['Documents', 'Expiring soon'],
+    ['Settings', 'Company details for invoices'],
     ['Overview', 'Bills due soon'],
   ])('renders %s', async (label, text) => {
     await click(navButton(label));
@@ -74,6 +87,8 @@ describe('app smoke test', () => {
       ['Projects', 'New project'],
       ['You & Company', 'Move money'],
       ['Passwords', 'New login'],
+      ['Invoices', 'New invoice'],
+      ['Budgets', 'New budget'],
     ]) {
       await click(navButton(screen));
       await click(container.querySelector('.top .btn.primary'));
@@ -99,6 +114,38 @@ describe('app smoke test', () => {
     await closeModal();
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true })));
     expect(document.querySelector('.palette')).toBeTruthy();
+  });
+
+  it('views an invoice and records its payment', async () => {
+    await click(navButton('Invoices'));
+    await click(container.querySelector('.tx'));
+    expect(document.querySelector('.paper')?.textContent).toContain('TAX INVOICE');
+    await closeModal();
+    const before = container.querySelectorAll('[aria-label="Mark paid"]').length;
+    await click(container.querySelector('[aria-label="Mark paid"]'));
+    await click(document.querySelector('.modal .btn.primary'));
+    expect(container.querySelectorAll('[aria-label="Mark paid"]').length).toBe(before - 1);
+  });
+
+  it('imports the sample bank statement', async () => {
+    await click(navButton('Transactions'));
+    const before = container.textContent!.match(/(\d+) entries/)![1];
+    await click([...container.querySelectorAll('.toolbar .btn')].find((b) => b.textContent?.includes('Import')));
+    await click([...document.querySelectorAll('.modal .btn')].find((b) => b.textContent?.includes('sample')));
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    expect(document.querySelectorAll('.import-row:not(.import-head)').length).toBeGreaterThan(5);
+    await click([...document.querySelectorAll('.modal-f .btn.primary')].find((b) => b.textContent?.includes('Import')));
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    expect(document.querySelector('.modal')).toBeNull();
+    expect(Number(container.textContent!.match(/(\d+) entries/)![1])).toBeGreaterThan(Number(before));
+  });
+
+  it('opens a document preview', async () => {
+    await click(navButton('Documents'));
+    await click(container.querySelector('.doc-card'));
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    expect(document.querySelector('.doc-preview iframe')).toBeTruthy();
+    await closeModal();
   });
 
   it('logged no errors', () => {

@@ -27,6 +27,8 @@ export interface Transaction {
   billId?: string;
   /** GST/VAT rate in percent that is already included in `amount`. */
   taxRate?: number;
+  /** Set when this entry is a payment against an invoice. */
+  invoiceId?: string;
   createdAt: number;
 }
 
@@ -134,6 +136,109 @@ export interface Secret {
 
 export type ThemePref = 'system' | 'dark' | 'light';
 
+/** Your company's details, printed on invoices. */
+export interface CompanyProfile {
+  legalName: string;
+  address: string;
+  /** State or region, used to decide CGST+SGST (same state) vs IGST. */
+  state: string;
+  taxId: string;
+  email: string;
+  phone: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  ifsc: string;
+  upi: string;
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+  paymentTermsDays: number;
+  invoiceNotes: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  /** HSN / SAC code. */
+  code: string;
+  qty: number;
+  /** Price per unit before tax, in minor units. */
+  rate: number;
+  taxRate: number;
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'void';
+
+export interface Invoice {
+  id: string;
+  number: string;
+  clientName: string;
+  clientAddress: string;
+  clientTaxId: string;
+  clientEmail: string;
+  /** Client's state; compared with the company's to split GST. */
+  placeOfSupply: string;
+  issueDate: string;
+  dueDate: string;
+  items: InvoiceItem[];
+  notes: string;
+  projectId?: string;
+  status: InvoiceStatus;
+  paidDate?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Budget {
+  id: string;
+  book: Book;
+  category: string;
+  /** Monthly limit in minor units. */
+  amount: number;
+  createdAt: number;
+}
+
+/** "When a bank line mentions X, file it under Y." Learned during import. */
+export interface Rule {
+  id: string;
+  book: Book;
+  match: string;
+  category: string;
+  createdAt: number;
+}
+
+export type DocFolder = 'invoices' | 'receipts' | 'tax' | 'bank' | 'legal' | 'contracts' | 'identity' | 'insurance' | 'property' | 'other';
+
+export const DOC_FOLDER_LABEL: Record<DocFolder, string> = {
+  invoices: 'Invoices',
+  receipts: 'Receipts & bills',
+  tax: 'Tax & GST',
+  bank: 'Bank statements',
+  legal: 'Company & legal',
+  contracts: 'Contracts',
+  identity: 'ID & KYC',
+  insurance: 'Insurance',
+  property: 'Property & vehicle',
+  other: 'Other',
+};
+
+/** Metadata for a stored file. The file itself is encrypted separately (see storage.ts). */
+export interface Doc {
+  id: string;
+  book: Book;
+  name: string;
+  mime: string;
+  size: number;
+  folder: DocFolder;
+  tags: string[];
+  notes: string;
+  /** For passports, insurance, licences, contracts… */
+  expiresOn?: string;
+  /** A transaction, bill or invoice this file belongs to. */
+  linkId?: string;
+  createdAt: number;
+}
+
 export interface Settings {
   ownerName: string;
   companyName: string;
@@ -143,6 +248,7 @@ export interface Settings {
   autoLockMinutes: number;
   /** Month the financial year starts in, 1–12 (April in India, January elsewhere). */
   fyStartMonth: number;
+  company: CompanyProfile;
 }
 
 export interface VaultData {
@@ -153,6 +259,10 @@ export interface VaultData {
   projects: Project[];
   secrets: Secret[];
   bills: Bill[];
+  invoices: Invoice[];
+  budgets: Budget[];
+  rules: Rule[];
+  docs: Doc[];
 }
 
 export const TO_COMPANY: TransferReason[] = ['capital', 'loan'];
@@ -191,11 +301,36 @@ export function emptyVault(): VaultData {
       openingBalance: { personal: 0, company: 0 },
       autoLockMinutes: 5,
       fyStartMonth: 4,
+      company: emptyCompany(),
     },
     transactions: [],
     transfers: [],
     projects: [],
     secrets: [],
     bills: [],
+    invoices: [],
+    budgets: [],
+    rules: [],
+    docs: [],
+  };
+}
+
+export function emptyCompany(): CompanyProfile {
+  return {
+    legalName: '',
+    address: '',
+    state: '',
+    taxId: '',
+    email: '',
+    phone: '',
+    bankName: '',
+    accountName: '',
+    accountNumber: '',
+    ifsc: '',
+    upi: '',
+    invoicePrefix: 'INV-',
+    nextInvoiceNumber: 1,
+    paymentTermsDays: 15,
+    invoiceNotes: 'Thank you for your business.',
   };
 }

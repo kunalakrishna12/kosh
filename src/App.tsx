@@ -1,5 +1,5 @@
-import { Lock, Moon, Plus, Search, Sun } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Lock, Menu, Moon, Plus, Search, Sun } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BillForm, GeneratorModal, ProjectForm, SecretForm, TransferForm, TxForm } from './components/forms';
 import { Palette } from './components/Palette';
 import { addDays, today } from './lib/dates';
@@ -8,6 +8,10 @@ import type { ThemePref } from './lib/types';
 import { NAV_GROUPS, NAV_ITEMS, NavCtx, type Dialog, type Nav, type View } from './nav';
 import { useVault } from './store';
 import { Bills } from './views/Bills';
+import { BudgetForm, Budgets } from './views/Budgets';
+import { Documents, UploadForm } from './views/Documents';
+import { ImportForm } from './views/Import';
+import { InvoiceForm, Invoices } from './views/Invoices';
 import { Insights } from './views/Insights';
 import { LockScreen } from './views/Lock';
 import { Money } from './views/Money';
@@ -65,10 +69,13 @@ export function useTheme(): [ThemePref, (t: ThemePref) => void] {
 }
 
 /** What the "+" button in the top bar creates on each screen. */
-const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret'; label: string }> = {
+const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret' | 'invoice' | 'budget' | 'upload'; label: string }> = {
   overview: { type: 'tx', label: 'Entry' },
   money: { type: 'tx', label: 'Entry' },
   bills: { type: 'bill', label: 'Bill' },
+  invoices: { type: 'invoice', label: 'Invoice' },
+  budgets: { type: 'budget', label: 'Budget' },
+  documents: { type: 'upload', label: 'Upload' },
   projects: { type: 'project', label: 'Project' },
   owner: { type: 'transfer', label: 'Transfer' },
   reports: { type: 'tx', label: 'Entry' },
@@ -81,6 +88,9 @@ const TITLES: Record<View, string> = {
   overview: 'Overview',
   money: 'Transactions',
   bills: 'Bills',
+  invoices: 'Invoices',
+  budgets: 'Budgets',
+  documents: 'Documents',
   projects: 'Projects',
   reports: 'Reports & tax',
   owner: 'You & Company',
@@ -154,7 +164,27 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
   const dark = isDark(theme);
   const close = () => setDialog(null);
 
-  const Page = { overview: Overview, money: Money, bills: Bills, projects: Projects, owner: Owner, reports: Reports, vault: Vault, insights: Insights, settings: SettingsView }[view];
+  const Page = {
+    overview: Overview,
+    money: Money,
+    bills: Bills,
+    invoices: Invoices,
+    projects: Projects,
+    owner: Owner,
+    budgets: Budgets,
+    reports: Reports,
+    insights: Insights,
+    vault: Vault,
+    documents: Documents,
+    settings: SettingsView,
+  }[view];
+  const [more, setMore] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const primary = () => {
+    const p = PRIMARY[view];
+    if (p.type === 'upload') fileRef.current?.click();
+    else setDialog({ type: p.type } as Dialog);
+  };
 
   return (
     <NavCtx.Provider value={nav}>
@@ -210,7 +240,8 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
               <span className="label">Search or jump to…</span>
               <kbd>⌘K</kbd>
             </button>
-            <button className="btn primary" onClick={() => setDialog({ type: PRIMARY[view].type })}>
+            <input ref={fileRef} type="file" multiple hidden onChange={(e) => (e.target.files?.length && setDialog({ type: 'upload', files: [...e.target.files] }), (e.target.value = ''))} />
+            <button className="btn primary" onClick={primary}>
               <Plus size={16} />
               <span className="label">{PRIMARY[view].label}</span>
             </button>
@@ -227,10 +258,34 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
               {n.mobile}
             </button>
           ))}
+          <button aria-current={NAV_ITEMS.some((n) => !n.mobile && n.view === view) ? 'page' : undefined} onClick={() => setMore(true)}>
+            <Menu size={20} />
+            More
+          </button>
         </nav>
       </div>
 
       {dialog?.type === 'tx' && <TxForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
+      {dialog?.type === 'invoice' && <InvoiceForm initial={dialog.initial} onClose={close} />}
+      {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} onClose={close} />}
+      {dialog?.type === 'import' && <ImportForm onClose={close} />}
+      {dialog?.type === 'upload' && <UploadForm files={dialog.files} defaults={dialog.defaults} onClose={close} />}
+      {more && (
+        <div className="scrim sheet-scrim" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>
+          <div className="sheet" role="dialog" aria-label="All sections">
+            {NAV_ITEMS.map((n) => (
+              <button key={n.view} aria-current={view === n.view ? 'page' : undefined} onClick={() => (setMore(false), go(n.view))}>
+                <n.icon size={20} />
+                {n.label}
+              </button>
+            ))}
+            <button onClick={() => (setMore(false), lock())}>
+              <Lock size={20} />
+              Lock
+            </button>
+          </div>
+        </div>
+      )}
       {dialog?.type === 'bill' && <BillForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'transfer' && <TransferForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'project' && <ProjectForm initial={dialog.initial} onClose={close} />}

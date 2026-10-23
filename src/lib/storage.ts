@@ -1,6 +1,6 @@
-import type { SealedVault } from './crypto';
+import type { SealedBytes, SealedVault } from './crypto';
 
-/** A tiny IndexedDB key-value store. Only the sealed (encrypted) vault is ever written here. */
+/** A tiny IndexedDB key-value store. Only encrypted data is ever written here: the sealed vault and sealed documents. */
 
 const DB_NAME = 'kosh';
 const STORE = 'kv';
@@ -33,6 +33,12 @@ async function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRe
 export const loadSealed = () => run<SealedVault | undefined>('readonly', (s) => s.get(VAULT_KEY));
 export const saveSealed = (v: SealedVault) => run<void>('readwrite', (s) => s.put(v, VAULT_KEY));
 export const deleteSealed = () => run<void>('readwrite', (s) => s.delete(VAULT_KEY));
+
+const docKey = (id: string) => `doc:${id}`;
+export const loadDoc = (id: string) => run<SealedBytes | undefined>('readonly', (s) => s.get(docKey(id)));
+export const saveDoc = (id: string, v: SealedBytes) => run<void>('readwrite', (s) => s.put(v, docKey(id)));
+export const deleteDoc = (id: string) => run<void>('readwrite', (s) => s.delete(docKey(id)));
+export const deleteAllDocs = () => run<void>('readwrite', (s) => s.delete(IDBKeyRange.bound('doc:', 'doc:\uffff')));
 
 /** Non-secret UI preferences that must be known before the vault is unlocked. */
 export const prefs = {

@@ -1,4 +1,6 @@
 import { billSummary, priceChange } from './bills';
+import { budgetStatus } from './budgets';
+import { invoiceState, totals } from './invoices';
 import { addDays, lastMonths, monthKey, today } from './dates';
 import type { Book, Project, Transfer, TxKind, VaultData } from './types';
 import { TO_COMPANY } from './types';
@@ -299,6 +301,32 @@ export function insights(data: VaultData, fmt: (minor: number) => string, end = 
     if (change !== null && change >= 0.2) {
       out.push({ tone: 'warn', title: `${bill.name} bill up ${Math.round(change * 100)}%`, detail: `Last payment was ${fmt(bill.amount)}. Check usage, or set a spending limit with ${bill.vendor || 'the provider'}.` });
     }
+  }
+
+  const overdueInv = data.invoices.filter((i) => invoiceState(i, end) === 'overdue');
+  if (overdueInv.length) {
+    const sum = overdueInv.reduce((s, i) => s + totals(i, data.settings.company).total, 0);
+    out.unshift({
+      tone: 'warn',
+      title: `${fmt(sum)} in overdue invoices`,
+      detail: `${overdueInv.map((i) => i.clientName || i.number).slice(0, 3).join(', ')}. Send a reminder from Invoices.`,
+    });
+  }
+
+  for (const s of budgetStatus(data, end.slice(0, 7), end)) {
+    const name = `${s.budget.book === 'company' ? names.company : 'Personal'} · ${s.budget.category}`;
+    if (s.state === 'over') out.push({ tone: 'warn', title: `${name} is over budget`, detail: `${fmt(s.spent)} spent of ${fmt(s.budget.amount)} this month.` });
+    else if (s.state === 'pace') out.push({ tone: 'warn', title: `${name} is on pace to go over`, detail: `Heading for ${fmt(s.projected)} against a ${fmt(s.budget.amount)} budget. About ${fmt(s.perDayLeft)} a day is left.` });
+  }
+
+  const soon = addDays(end, 30);
+  const expiring = data.docs.filter((d) => d.expiresOn && d.expiresOn <= soon).sort((a, b) => (a.expiresOn! < b.expiresOn! ? -1 : 1));
+  if (expiring.length) {
+    out.push({
+      tone: 'warn',
+      title: `${expiring.length} document${expiring.length > 1 ? 's' : ''} expiring within 30 days`,
+      detail: expiring.map((d) => d.name.replace(/\.[a-z0-9]+$/i, '')).slice(0, 3).join(', ') + '.',
+    });
   }
 
   const b = balances(data, end);

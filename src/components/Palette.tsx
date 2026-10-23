@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Dices, FolderKanban, KeyRound, Lock, Receipt, Search, type LucideIcon } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Dices, FileText, FileUp, FolderKanban, FolderLock, Gauge, KeyRound, Lock, Receipt, Search, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { hostOf } from '../lib/passwords';
@@ -34,6 +34,9 @@ export function Palette({ onClose }: { onClose: () => void }) {
       { id: 'new-exp-c', group: 'Create', label: 'Company expense', icon: Briefcase, run: act(() => nav.open({ type: 'tx', defaults: { book: 'company', kind: 'expense' } })), keywords: 'add spend bill' },
       { id: 'new-inc', group: 'Create', label: 'Income', icon: ArrowDownLeft, run: act(() => nav.open({ type: 'tx', defaults: { book: 'company', kind: 'income' } })), keywords: 'add payment invoice' },
       { id: 'new-tr', group: 'Create', label: 'Move money between you and the company', icon: ArrowLeftRight, run: act(() => nav.open({ type: 'transfer' })), keywords: 'salary loan capital transfer' },
+      { id: 'new-inv', group: 'Create', label: 'Invoice', icon: FileText, run: act(() => nav.open({ type: 'invoice' })), keywords: 'bill client gst tax invoice' },
+      { id: 'import', group: 'Create', label: 'Import a bank statement', icon: FileUp, run: act(() => nav.open({ type: 'import' })), keywords: 'csv upload bank statement' },
+      { id: 'new-budget', group: 'Create', label: 'Budget', icon: Gauge, run: act(() => nav.open({ type: 'budget' })), keywords: 'limit' },
       { id: 'new-bill', group: 'Create', label: 'Recurring bill', icon: Receipt, run: act(() => nav.open({ type: 'bill' })), keywords: 'subscription aws cloud api rent' },
       { id: 'new-pr', group: 'Create', label: 'Project', icon: FolderKanban, run: act(() => nav.open({ type: 'project' })), keywords: 'client' },
       { id: 'new-sec', group: 'Create', label: 'Login', icon: KeyRound, run: act(() => nav.open({ type: 'secret' })), keywords: 'password' },
@@ -58,6 +61,14 @@ export function Palette({ onClose }: { onClose: () => void }) {
       .filter((p) => `${p.name} ${p.client}`.toLowerCase().includes(term))
       .slice(0, 4)
       .map((p) => ({ id: `pr-${p.id}`, group: 'Projects', label: p.name, hint: p.client, icon: FolderKanban, run: act(() => nav.go('projects', { projectId: p.id })) }));
+    const docs: Item[] = data.docs
+      .filter((d) => `${d.name} ${d.tags.join(' ')}`.toLowerCase().includes(term))
+      .slice(0, 4)
+      .map((d) => ({ id: `doc-${d.id}`, group: 'Documents', label: d.name, icon: FolderLock, run: act(() => nav.go('documents')) }));
+    const invoices: Item[] = data.invoices
+      .filter((i) => `${i.number} ${i.clientName}`.toLowerCase().includes(term))
+      .slice(0, 4)
+      .map((i) => ({ id: `inv-${i.id}`, group: 'Invoices', label: `${i.number} · ${i.clientName}`, icon: FileText, run: act(() => nav.open({ type: 'invoice', initial: i })) }));
     const bills: Item[] = data.bills
       .filter((b) => b.active && `${b.name} ${b.vendor}`.toLowerCase().includes(term))
       .slice(0, 4)
@@ -72,8 +83,8 @@ export function Palette({ onClose }: { onClose: () => void }) {
         ),
       }));
     const matches = base.filter((i) => `${i.label} ${i.keywords ?? ''}`.toLowerCase().includes(term));
-    return [...secrets, ...bills, ...projects, ...matches];
-  }, [q, data.secrets, data.projects, data.bills, nav, lock, copy, onClose]);
+    return [...secrets, ...invoices, ...docs, ...bills, ...projects, ...matches];
+  }, [q, data.secrets, data.projects, data.bills, data.docs, data.invoices, nav, lock, copy, onClose]);
 
   useEffect(() => setSel(0), [q]);
   useEffect(() => {

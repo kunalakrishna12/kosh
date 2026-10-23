@@ -115,3 +115,39 @@ export function isSealedVault(x: unknown): x is SealedVault {
     s.kdf.iterations >= 100_000
   );
 }
+
+/* Documents are encrypted one file at a time with the same vault key. The document id is
+   bound in as associated data, so an encrypted file can't be swapped for another. */
+
+export interface SealedBytes {
+  iv: Uint8Array;
+  ct: ArrayBuffer;
+}
+
+const docAad = (id: string) => new TextEncoder().encode(`kosh-doc:v1:${id}`);
+
+export async function sealBytes(key: CryptoKey, id: string, bytes: ArrayBuffer): Promise<SealedBytes> {
+  const iv = randomBytes(12);
+  return { iv, ct: await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: docAad(id) }, key, bytes) };
+}
+
+export async function unsealBytes(key: CryptoKey, id: string, s: SealedBytes): Promise<ArrayBuffer> {
+  try {
+    return await crypto.subtle.decrypt({ name: 'AES-GCM', iv: s.iv, additionalData: docAad(id) }, key, s.ct);
+  } catch {
+    throw new WrongPasswordError();
+  }
+}
+
+/** Backup file: the sealed vault plus every sealed document, base64-encoded. */
+export interface Backup {
+  format: 'kosh-backup';
+  v: 2;
+  vault: SealedVault;
+  docs: Record<string, { iv: string; ct: string }>;
+}
+
+export function isBackup(x: unknown): x is Backup {
+  const b = x as Backup;
+  return !!b && b.format === 'kosh-backup' && b.v === 2 && isSealedVault(b.vault) && typeof b.docs === 'object' && b.docs !== null;
+}

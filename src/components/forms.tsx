@@ -1,11 +1,11 @@
-import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
 import { advance } from '../lib/bills';
 import { taxPart } from '../lib/reports';
-import type { TxDefaults } from '../nav';
+import { useNav, type TxDefaults } from '../nav';
 import {
   BILL_KIND_LABEL,
   DEFAULT_CATEGORIES,
@@ -86,6 +86,8 @@ export function TxForm({
   const [date, setDate] = useState(initial?.date ?? today());
   const [note, setNote] = useState(initial?.note ?? defaults?.note ?? '');
   const [taxRate, setTaxRate] = useState(initial?.taxRate ?? defaults?.taxRate ?? 0);
+  const nav = useNav();
+  const attachments = initial ? data.docs.filter((d) => d.linkId === initial.id) : [];
   const billId = initial?.billId ?? defaults?.billId;
   const bill = billId ? data.bills.find((b) => b.id === billId) : undefined;
   const [projectId, setProjectId] = useState(initial?.projectId ?? defaults?.projectId ?? '');
@@ -218,6 +220,26 @@ export function TxForm({
                 ))}
               </select>
             </Field>
+          )}
+          {initial && (
+            <div className="full row wrap" style={{ gap: 8 }}>
+              {attachments.map((d) => (
+                <button key={d.id} type="button" className="pill gold" style={{ border: 0, cursor: 'pointer' }} onClick={() => nav.go('documents')}>
+                  <Paperclip size={11} /> {d.name}
+                </button>
+              ))}
+              <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
+                <Paperclip size={14} /> Attach receipt
+                <input
+                  type="file"
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) nav.open({ type: 'upload', files: [f], defaults: { folder: 'receipts', book, linkId: initial.id } });
+                  }}
+                />
+              </label>
+            </div>
           )}
           {book === 'company' && kind === 'expense' && (
             <label className="check full">

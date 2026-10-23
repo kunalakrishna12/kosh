@@ -16,6 +16,7 @@ const csp: Plugin = {
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "connect-src 'self' https://api.pwnedpasswords.com",
+      "frame-src blob:",
       "object-src 'none'",
       "base-uri 'none'",
       "form-action 'none'",

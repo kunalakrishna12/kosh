@@ -1,13 +1,14 @@
-import { Download, ExternalLink, Github, ShieldCheck, Upload } from 'lucide-react';
+import { Download, ExternalLink, Github, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { useTheme } from '../App';
 import { StrengthMeter } from '../components/forms';
 import { download, Field, Seg, useToast } from '../components/ui';
 import { WrongPasswordError } from '../lib/crypto';
 import { today } from '../lib/dates';
+import { formatNumber, INDIAN_STATES } from '../lib/invoices';
 import { CURRENCIES, toInput, toMinor } from '../lib/money';
 import { strength } from '../lib/passwords';
-import type { Book, ThemePref } from '../lib/types';
+import type { Book, CompanyProfile, ThemePref } from '../lib/types';
 import { useVault } from '../store';
 
 export const REPO_URL = 'https://github.com/kunalakrishna12/kosh';
@@ -30,6 +31,19 @@ export function SettingsView() {
   const [theme, setTheme] = useTheme();
   const s = data.settings;
   const set = (patch: Partial<typeof s>) => update((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
+  const setCo = (patch: Partial<CompanyProfile>) => update((d) => ({ ...d, settings: { ...d.settings, company: { ...d.settings.company, ...patch } } }));
+  const co = s.company;
+  const coField = (key: keyof CompanyProfile, label: string, opts: { placeholder?: string; mono?: boolean; full?: boolean; list?: string } = {}) => (
+    <Field label={label} className={opts.full ? 'full' : undefined}>
+      <input
+        className={`input ${opts.mono ? 'mono' : ''}`}
+        value={String(co[key])}
+        placeholder={opts.placeholder}
+        list={opts.list}
+        onChange={(e) => setCo({ [key]: key === 'taxId' || key === 'ifsc' ? e.target.value.toUpperCase() : e.target.value } as Partial<CompanyProfile>)}
+      />
+    </Field>
+  );
   const [opening, setOpening] = useState<Record<Book, string>>({ personal: toInput(s.openingBalance.personal), company: toInput(s.openingBalance.company) });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -133,6 +147,75 @@ export function SettingsView() {
         </Row>
       </div>
 
+      <h2 className="section-title mt-lg">Company details for invoices</h2>
+      <p className="section-sub">Printed on every invoice. Your state decides whether GST is split into CGST + SGST or charged as IGST.</p>
+      <div className="card">
+        <Row title="Business" desc="Your registered name, address and GSTIN.">
+          <div className="form-grid">
+            {coField('legalName', 'Legal name', { placeholder: 'Acme Technologies Private Limited', full: true })}
+            <Field label="Address" className="full">
+              <textarea className="textarea" style={{ minHeight: 64 }} value={co.address} onChange={(e) => setCo({ address: e.target.value })} />
+            </Field>
+            {coField('state', 'State', { list: 'co-states' })}
+            <datalist id="co-states">
+              {INDIAN_STATES.map((x) => (
+                <option key={x} value={x} />
+              ))}
+            </datalist>
+            {coField('taxId', 'GSTIN / VAT number', { mono: true, placeholder: '36ABCDE1234F1Z5' })}
+            {coField('email', 'Billing email')}
+            {coField('phone', 'Phone')}
+          </div>
+        </Row>
+        <Row title="Getting paid" desc="Bank and UPI details shown at the bottom of invoices.">
+          <div className="form-grid">
+            {coField('bankName', 'Bank and branch')}
+            {coField('accountName', 'Account name')}
+            {coField('accountNumber', 'Account number', { mono: true })}
+            {coField('ifsc', 'IFSC / SWIFT', { mono: true })}
+            {coField('upi', 'UPI ID', { mono: true, placeholder: 'yourbusiness@bank', full: true })}
+          </div>
+        </Row>
+        <Row title="Numbering and terms" desc={`Next invoice will be ${formatNumber(co)}.`}>
+          <div className="form-grid">
+            {coField('invoicePrefix', 'Prefix', { mono: true, placeholder: 'INV-' })}
+            <Field label="Next number">
+              <input className="input num" inputMode="numeric" value={co.nextInvoiceNumber} onChange={(e) => setCo({ nextInvoiceNumber: Math.max(1, Number(e.target.value.replace(/\D/g, '')) || 1) })} />
+            </Field>
+            <Field label="Payment terms (days)">
+              <input className="input num" inputMode="numeric" value={co.paymentTermsDays} onChange={(e) => setCo({ paymentTermsDays: Math.max(0, Number(e.target.value.replace(/\D/g, '')) || 0) })} />
+            </Field>
+            <Field label="Default notes" className="full">
+              <textarea className="textarea" style={{ minHeight: 60 }} value={co.invoiceNotes} onChange={(e) => setCo({ invoiceNotes: e.target.value })} />
+            </Field>
+          </div>
+        </Row>
+      </div>
+
+      <h2 className="section-title mt-lg">Import rules</h2>
+      <p className="section-sub">Learned when you correct a category during a statement import. The first matching rule wins.</p>
+      <div className="card">
+        {data.rules.length === 0 && (
+          <p className="muted" style={{ margin: 0 }}>
+            No rules yet. Import a statement and fix a category, and Kosh will remember it.
+          </p>
+        )}
+        {data.rules.map((r) => (
+          <div key={r.id} className="cat-row" style={{ gridTemplateColumns: '10px 1fr auto auto' }}>
+            <i className="swatch" style={{ background: r.book === 'company' ? 'var(--company)' : 'var(--personal)' }} />
+            <span>
+              Contains <b className="mono">“{r.match}”</b> → {r.category}
+            </span>
+            <span className="faint" style={{ fontSize: 12 }}>
+              {r.book === 'company' ? 'Company' : 'Personal'}
+            </span>
+            <button className="icon-btn" aria-label={`Delete rule ${r.match}`} onClick={() => update((d) => ({ ...d, rules: d.rules.filter((x) => x.id !== r.id) }))}>
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
       <h2 className="section-title mt-lg">Security</h2>
       <p className="section-sub">Your vault is encrypted with AES-256-GCM. The key comes from your master password through 600,000 rounds of PBKDF2-SHA256.</p>
       <div className="card">
@@ -166,7 +249,7 @@ export function SettingsView() {
             </form>
           )}
         </Row>
-        <Row title="Encrypted backup" desc="A single file that only your master password can open. Keep a copy somewhere safe, like a USB drive or cloud folder.">
+        <Row title="Encrypted backup" desc="One file with everything, documents included, that only your master password can open. Keep a copy somewhere safe, like a USB drive or cloud folder.">
           <div className="row wrap">
             <button
               className="btn"

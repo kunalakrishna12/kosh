@@ -4,7 +4,7 @@
 
 # Kosh
 
-**Your money, your company's money, and every password, in one encrypted vault that never leaves your device.**
+**Your money, your company's money, your documents and every password, in one encrypted vault that never leaves your device.**
 
 The open-source finance and security workspace for founders, freelancers and small teams.
 
@@ -21,7 +21,7 @@ The open-source finance and security workspace for founders, freelancers and sma
 
 ## Why Kosh?
 
-If you run a company, your money lives in two places: your pocket and the business. Most apps only see one. So you end up with a personal budgeting app, an accounting tool for the company, a spreadsheet for "money I put in", a reminder app for bills, and a password manager on the side.
+If you run a company, your money lives in two places: your pocket and the business. Most apps only see one. So you end up with a personal budgeting app, an accounting tool for the company, an invoicing tool, a spreadsheet for "money I put in", a reminder app for bills, a folder of PDFs, and a password manager on the side.
 
 **Kosh puts it all in one place and understands how the pieces connect:**
 
@@ -29,6 +29,7 @@ If you run a company, your money lives in two places: your pocket and the busine
 - Draw a salary, and it counts as your income *and* a company cost. Across both books it cancels out, because it's your own money moving.
 - Tag spending to a client project, and you see the real margin, budget burn and what's left to collect.
 - Record cloud and API bills once. Kosh reminds you when they're due, flags price jumps, and plans them into a cash forecast.
+- Import your bank statement, and Kosh categorises every line, skips what you already have, ticks off bills it recognises, and marks invoices paid when the client's payment shows up.
 
 All of it is encrypted on your device. **No account, no server, no tracking.**
 
@@ -38,13 +39,28 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Two books in one place.** Personal and company income and expenses, with smart categories.
 - **You ↔ Company ledger.** Capital, loans, salary, dividends, repayments and reimbursements, plus a live **"company owes you"** balance.
 - **Cash in each pocket**, from opening balances plus every entry and transfer.
-- **Fast entry.** Press `N` anywhere, or use `⌘K` for everything.
+- **Bank statement import.** Drop in a CSV from HDFC, ICICI, SBI, Axis, Kotak or almost any bank or card. Kosh finds the header, works out the date format and columns, auto-categorises each line (your rules, then your history, then a built-in merchant list), flags duplicates, matches bill payments and invoice receipts, and learns from your corrections.
+- **Fast entry.** Press `N` anywhere, or use `⌘K` for everything. Attach a receipt to any entry.
 
 ### 🧾 Bills: never miss one, never overpay
 - Recurring bills for **cloud, APIs, SaaS, rent, utilities, insurance, EMIs and CA fees**: weekly, monthly, quarterly or yearly.
 - **Usage-based bills** (AWS, OpenAI, Twilio…) take the real amount when paid, and Kosh warns when one jumps.
 - **Overdue and due-this-week** alerts, plus your monthly and yearly committed spend by type.
 - **One-click "Pay"** records the payment and rolls the bill to its next due date.
+
+### 🧾 Invoices with GST
+- Professional **tax invoices** with HSN/SAC codes, quantities and per-line GST rates.
+- **CGST + SGST or IGST worked out automatically** from your state and the client's place of supply.
+- **Amount in words** (lakh and crore for rupees), your GSTIN, bank account and UPI on every invoice.
+- Sequential numbering such as `LS/26-27/0001`, payment terms, client details remembered.
+- **Print or save as PDF**, copy a payment reminder, and **mark paid** to post the income to your books split by GST rate.
+- See what's waiting to be paid, what's overdue, and your average days to get paid.
+
+### 🎯 Budgets
+- Monthly limits per category, for you and the company.
+- **Pace tracking**: where you'll land by month end at today's rate, and how much you can still spend per day.
+- **Suggested budgets** from your last three months of spending.
+- Early warnings in Insights before you go over.
 
 ### 📊 Accounting: what your CA asks for
 - **Profit & loss statement** for the company or yourself, compared with the previous period.
@@ -59,6 +75,12 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Project profitability**: contract vs budget, budget burn, collection, margin.
 - Plain-language **insights**: spending spikes, projects over budget, bills that jumped, money you're owed.
 
+### 🗂 Document vault
+- Store incorporation papers, GST certificates, contracts, bank statements, receipts, IDs and insurance policies.
+- **Every file is encrypted separately** with AES-256-GCM before it's saved, and included in your encrypted backup.
+- Folders, tags, search, in-app preview for PDFs and images, and **expiry reminders** for passports, policies and leases.
+- Link files to transactions, bills and invoices.
+
 ### 🔐 Password vault
 - Personal and company logins kept apart, with a **generator**, **strength meter**, **reuse detection** and age tracking.
 - **Vault health score** with one-click fixes.
@@ -67,17 +89,18 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 
 ### ✨ Built with care
 - Dark and light themes, keyboard-first, responsive down to phones.
-- Hand-written SVG charts and a single CSS file: no UI kit, no chart library, about 95 KB gzipped.
+- Hand-written SVG charts and a single CSS file: no UI kit, no chart library, about 120 KB gzipped.
 - Works offline once loaded.
 
 ## Privacy and security
 
 | | |
 |---|---|
-| Where is my data? | In your browser's IndexedDB, as **one AES-256-GCM encrypted blob**. |
+| Where is my data? | In your browser's IndexedDB: **one AES-256-GCM encrypted vault**, plus each document encrypted separately with the same key. |
 | How is it encrypted? | Your master password goes through **PBKDF2-SHA256 (600,000 rounds)** to make a non-extractable key, held only in memory. |
 | Does anything go to a server? | **No.** A strict Content-Security-Policy blocks all outside hosts. The one exception is the breach check, and only when you click it. |
-| Can you reset my password? | No one can. Download an **encrypted backup** (Settings) and keep it somewhere safe. |
+| What about my bank statements? | They're read on your device. Nothing is uploaded. |
+| Can you reset my password? | No one can. Download an **encrypted backup** (Settings), which includes your documents, and keep it somewhere safe. |
 
 Full details in [SECURITY.md](SECURITY.md).
 
@@ -120,16 +143,19 @@ All maths uses integer minor units (paise/cents), so totals never drift. See [`s
 React 18 · TypeScript · Vite · WebCrypto · IndexedDB · Vitest. Three runtime dependencies: React, lucide-react icons, and the Inter font.
 
 ```bash
-npm test          # crypto, money model, bills, tax, reports, passwords + a full UI smoke test
+npm test          # crypto, money model, bills, tax, invoices, budgets, import, passwords + a full UI smoke test
 npm run typecheck
 npm run build
 ```
 
 ## Roadmap
 
-- [ ] Import bank and card statements (CSV / OFX), with auto-categorise rules
-- [ ] Invoices: create, send and track payments, linked to projects and GST
-- [ ] Budgets per category with alerts
+- [x] Import bank and card statements (CSV), with auto-categorise rules
+- [x] Invoices with GST, linked to projects and payments
+- [x] Budgets per category with alerts
+- [x] Encrypted document vault with expiry reminders
+- [ ] Excel (.xlsx), OFX and PDF statement import
+- [ ] Email invoices, and e-invoicing (IRN / QR) for GST
 - [ ] Multi-currency entries with FX rates
 - [ ] Optional end-to-end-encrypted sync between devices
 - [ ] Argon2id key derivation

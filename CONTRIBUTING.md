@@ -21,6 +21,9 @@ npm run typecheck
 | `src/lib/analytics.ts` | The money model: balances, cash flow, runway, insights |
 | `src/lib/bills.ts` | Recurring bills: due dates, monthly cost, price changes |
 | `src/lib/reports.ts` | P&L statements, GST/VAT summary, financial-year periods, cash forecast |
+| `src/lib/invoices.ts` | Invoice totals, CGST/SGST/IGST split, amount in words, payment entries |
+| `src/lib/budgets.ts` | Budget progress, month-end pace, suggestions |
+| `src/lib/importer.ts` | CSV parsing, column/date detection, auto-categorising, bill and invoice matching |
 | `src/lib/passwords.ts` | Generator, strength estimate, vault health, breach check |
 | `src/lib/demo.ts` | The sample data behind `?demo` |
 | `src/store.tsx` | Unlock / lock / auto-save |
@@ -38,8 +41,9 @@ npm run typecheck
 ## Good first issues
 
 - More currencies and locales
-- Import transactions from a bank CSV
-- Budgets per category with alerts
+- Add your bank's statement format to the importer tests
+- Excel (.xlsx) and OFX statement import
+- More merchants in the built-in categoriser (`src/lib/importer.ts`)
 - Argon2id key derivation (WASM)
 - Translations
 

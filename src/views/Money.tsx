@@ -1,4 +1,4 @@
-import { Download, Search, Wallet } from 'lucide-react';
+import { Download, FileUp, Search, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { activityOf, ActivityRow, type Activity } from '../components/rows';
 import { download, Empty, Seg } from '../components/ui';
@@ -114,6 +114,9 @@ export function Money() {
             <option key={c}>{c}</option>
           ))}
         </select>
+        <button className="btn" onClick={() => nav.open({ type: 'import' })}>
+          <FileUp size={15} /> Import
+        </button>
         <button className="btn" onClick={exportCsv} disabled={!rows.length} title="Export what you see as CSV (not encrypted)">
           <Download size={15} /> CSV
         </button>
@@ -147,9 +150,14 @@ export function Money() {
             icon={<Wallet size={22} />}
             title={data.transactions.length ? 'Nothing matches these filters' : 'No entries yet'}
             action={
-              <button className="btn primary" onClick={() => nav.open({ type: 'tx' })}>
-                Add an entry
-              </button>
+              <div className="row" style={{ justifyContent: 'center' }}>
+                <button className="btn primary" onClick={() => nav.open({ type: 'tx' })}>
+                  Add an entry
+                </button>
+                <button className="btn" onClick={() => nav.open({ type: 'import' })}>
+                  <FileUp size={15} /> Import a statement
+                </button>
+              </div>
             }
           />
         ) : (

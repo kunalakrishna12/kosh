@@ -15,7 +15,9 @@ We aim to reply within 72 hours.
 | **Encryption** | The whole vault is one AES-256-GCM ciphertext, with a fresh 96-bit IV on every save and an authenticated header. |
 | **Key derivation** | PBKDF2-HMAC-SHA256, 600,000 iterations (the [OWASP 2023](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) recommendation), 128-bit random salt. |
 | **Key handling** | The derived key is a non-extractable WebCrypto key held only in memory. It is discarded on lock or auto-lock. The master password is never stored. |
-| **Storage** | IndexedDB in your browser holds only the sealed blob. Nothing readable is written to disk. |
+| **Storage** | IndexedDB in your browser holds only the sealed vault and sealed documents. Nothing readable is written to disk. |
+| **Documents** | Each file is encrypted separately with the vault key (fresh IV, document id bound as associated data, so files can't be swapped). Changing the master password re-encrypts every file. |
+| **Statement import** | CSV files are parsed in the browser. Nothing is uploaded. |
 | **Network** | None. The production build ships a Content-Security-Policy that blocks every outside host except the opt-in breach check. |
 | **Breach check** | Optional and user-triggered. Uses Have I Been Pwned's k-anonymity range API: only the first 5 hex characters of a SHA-1 hash are sent, with response padding. |
 | **Clipboard** | Copied passwords are cleared after 20 seconds if the clipboard still holds them. |

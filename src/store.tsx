@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { isSealedVault, newVaultKey, seal, unseal, type SealedVault, type VaultKey } from './lib/crypto';
-import { demoVault } from './lib/demo';
+import { fromB64, isBackup, isSealedVault, newVaultKey, seal, sealBytes, toB64, unseal, unsealBytes, type Backup, type SealedVault, type VaultKey } from './lib/crypto';
+import { demoDocBlob, demoVault } from './lib/demo';
 import { moneyFormat, type MoneyFormat } from './lib/money';
-import { deleteSealed, loadSealed, saveSealed } from './lib/storage';
-import { emptyVault, type VaultData } from './lib/types';
+import { deleteAllDocs, deleteDoc, deleteSealed, loadDoc, loadSealed, saveDoc, saveSealed } from './lib/storage';
+import { emptyVault, type Doc, type VaultData } from './lib/types';
 
 export type Status = 'loading' | 'new' | 'locked' | 'open';
 export type SaveState = 'saved' | 'saving' | 'error';
@@ -25,14 +25,30 @@ interface Vault {
   /** Replaces the stored vault with a backup file. The backup's own password opens it. */
   importBackup(file: File): Promise<void>;
   wipe(): Promise<void>;
+  /** Encrypts a file into the document vault. */
+  addDoc(file: File, meta: Omit<Doc, 'id' | 'name' | 'mime' | 'size' | 'createdAt'> & { name?: string }): Promise<Doc>;
+  /** Decrypts a stored file. */
+  openDoc(doc: Doc): Promise<Blob>;
+  removeDoc(id: string): Promise<void>;
 }
+
+export const MAX_DOC_BYTES = 25 * 1024 * 1024;
 
 const Ctx = createContext<Vault | null>(null);
 
 /** Older vaults may miss fields added later; fill them from the defaults. */
 function migrate(d: VaultData): VaultData {
   const base = emptyVault();
-  return { ...base, ...d, settings: { ...base.settings, ...d.settings, openingBalance: { ...base.settings.openingBalance, ...d.settings?.openingBalance } } };
+  return {
+    ...base,
+    ...d,
+    settings: {
+      ...base.settings,
+      ...d.settings,
+      openingBalance: { ...base.settings.openingBalance, ...d.settings?.openingBalance },
+      company: { ...base.settings.company, ...d.settings?.company },
+    },
+  };
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -43,6 +59,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const vk = useRef<VaultKey | null>(null);
   const dirty = useRef(false);
   const timer = useRef<number>();
+  // Files added during the demo live only in memory.
+  const demoFiles = useRef(new Map<string, Blob>());
 
   useEffect(() => {
     // ?demo opens sample data straight away: handy for "try it" links and screenshots.
@@ -133,17 +151,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       },
       async changePassword(current, next) {
         const sealed = await loadSealed();
-        if (!sealed || !vk.current) throw new Error('Vault is not open.');
+        const old = vk.current;
+        if (!sealed || !old) throw new Error('Vault is not open.');
         await unseal<VaultData>(sealed, current);
         const key = await newVaultKey(next);
+        // Re-encrypt every document under the new key before switching the vault over.
+        for (const doc of latest.current.docs) {
+          const stored = await loadDoc(doc.id);
+          if (stored) await saveDoc(doc.id, await sealBytes(key.key, doc.id, await unsealBytes(old.key, doc.id, stored)));
+        }
         await saveSealed(await seal(key, latest.current));
         vk.current = key;
         dirty.current = false;
       },
       async exportBackup() {
         if (!vk.current) throw new Error('Demo data cannot be backed up.');
-        const sealed = await seal(vk.current, latest.current);
-        return new Blob([JSON.stringify(sealed, null, 2)], { type: 'application/json' });
+        const docs: Backup['docs'] = {};
+        for (const doc of latest.current.docs) {
+          const stored = await loadDoc(doc.id);
+          if (stored) docs[doc.id] = { iv: toB64(stored.iv), ct: toB64(new Uint8Array(stored.ct)) };
+        }
+        const backup: Backup = { format: 'kosh-backup', v: 2, vault: await seal(vk.current, latest.current), docs };
+        return new Blob([JSON.stringify(backup)], { type: 'application/json' });
       },
       async importBackup(file) {
         let parsed: unknown;
@@ -152,19 +181,55 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         } catch {
           throw new Error('That file is not a Kosh backup.');
         }
-        if (!isSealedVault(parsed)) throw new Error('That file is not a Kosh backup.');
+        // v1 backups are a bare sealed vault; v2 adds documents.
+        if (!isSealedVault(parsed) && !isBackup(parsed)) throw new Error('That file is not a Kosh backup.');
         flushAndForget();
-        await saveSealed(parsed as SealedVault);
+        await deleteAllDocs();
+        if (isBackup(parsed)) {
+          for (const [id, d] of Object.entries(parsed.docs)) {
+            const ct = fromB64(d.ct);
+            await saveDoc(id, { iv: fromB64(d.iv), ct: ct.buffer.slice(ct.byteOffset, ct.byteOffset + ct.byteLength) as ArrayBuffer });
+          }
+          await saveSealed(parsed.vault);
+        } else {
+          await saveSealed(parsed as SealedVault);
+        }
         setData(emptyVault());
         setDemo(false);
         setStatus('locked');
       },
       async wipe() {
         flushAndForget();
+        await deleteAllDocs();
         await deleteSealed();
         setData(emptyVault());
         setDemo(false);
         setStatus('new');
+      },
+      async addDoc(file, meta) {
+        if (file.size > MAX_DOC_BYTES) throw new Error(`${file.name} is larger than 25 MB.`);
+        const doc: Doc = { ...meta, id: crypto.randomUUID(), name: meta.name || file.name, mime: file.type || 'application/octet-stream', size: file.size, createdAt: Date.now() };
+        if (demo) demoFiles.current.set(doc.id, file);
+        else {
+          if (!vk.current) throw new Error('Vault is locked.');
+          await saveDoc(doc.id, await sealBytes(vk.current.key, doc.id, await file.arrayBuffer()));
+        }
+        dirty.current = true;
+        setData((d) => ({ ...d, docs: [doc, ...d.docs] }));
+        return doc;
+      },
+      async openDoc(doc) {
+        if (demo) return demoFiles.current.get(doc.id) ?? demoDocBlob(doc);
+        if (!vk.current) throw new Error('Vault is locked.');
+        const stored = await loadDoc(doc.id);
+        if (!stored) throw new Error('This file is missing from this device.');
+        return new Blob([await unsealBytes(vk.current.key, doc.id, stored)], { type: doc.mime });
+      },
+      async removeDoc(id) {
+        if (demo) demoFiles.current.delete(id);
+        else await deleteDoc(id);
+        dirty.current = true;
+        setData((d) => ({ ...d, docs: d.docs.filter((x) => x.id !== id) }));
       },
     };
   }, [status, demo, data, saveState]);
