@@ -688,6 +688,8 @@ kbd {
 .field {
   display: grid;
   gap: 6px;
+  /* Don't stretch label and input apart when a neighbouring field is taller (e.g. has a hint). */
+  align-content: start;
 }
 .field > span {
   font-size: 12.5px;

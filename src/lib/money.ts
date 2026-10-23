@@ -32,6 +32,18 @@ export function toMinor(input: string): number | null {
   return minor > 0 ? minor : null;
 }
 
+/**
+ * Parses a balance, which unlike an amount can be zero or negative (money owed on a card).
+ * Empty means zero. Returns null for anything that isn't a number.
+ */
+export function toBalance(input: string): number | null {
+  const clean = input.replace(/[,\s_]/g, '');
+  if (clean === '' || clean === '-') return 0;
+  if (!/^-?\d*(\.\d{0,2})?$/.test(clean) || clean === '.' || clean === '-.') return null;
+  const minor = Math.round(parseFloat(clean) * 100);
+  return Object.is(minor, -0) ? 0 : minor;
+}
+
 export function toInput(minor: number): string {
   return minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2);
 }

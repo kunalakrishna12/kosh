@@ -6,7 +6,7 @@ import { download, Field, Seg, useToast } from '../components/ui';
 import { WrongPasswordError } from '../lib/crypto';
 import { today } from '../lib/dates';
 import { formatNumber, INDIAN_STATES } from '../lib/invoices';
-import { CURRENCIES, toInput, toMinor } from '../lib/money';
+import { CURRENCIES, toBalance, toInput } from '../lib/money';
 import { strength } from '../lib/passwords';
 import type { Book, CompanyProfile, ThemePref } from '../lib/types';
 import { useVault } from '../store';
@@ -48,7 +48,7 @@ export function SettingsView() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const saveOpening = (book: Book) => {
-    const v = opening[book].trim() === '' || opening[book].trim() === '0' ? 0 : toMinor(opening[book]);
+    const v = toBalance(opening[book]);
     if (v === null) return;
     set({ openingBalance: { ...s.openingBalance, [book]: v } });
   };
