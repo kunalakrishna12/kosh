@@ -1,5 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
@@ -580,10 +580,18 @@ export function SecretForm({ initial, defaults, onClose }: { initial?: Secret; d
   const [show, setShow] = useState(!initial);
   const [gen, setGen] = useState(false);
   const [error, setError] = useState('');
+  const pwRef = useRef<HTMLInputElement>(null);
+  // Browser password managers can fill this field without an input event; trust the field.
+  const readPw = () => {
+    const v = pwRef.current?.value ?? password;
+    if (v !== password) setPassword(v);
+    return v;
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return setError('Give it a name, like "GitHub".');
+    const password = readPw();
     const now = Date.now();
     const changed = !initial || initial.password !== password;
     const s: Secret = {
@@ -664,15 +672,26 @@ export function SecretForm({ initial, defaults, onClose }: { initial?: Secret; d
           <span>Password</span>
           <div className="input-wrap">
             <input
+              ref={pwRef}
               className="input mono"
               type={show ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onBlur={readPw}
               autoComplete="new-password"
               spellCheck={false}
             />
             <div className="addons">
-              <button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+              <button
+                type="button"
+                className="icon-btn"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  readPw();
+                  setShow((v) => !v);
+                }}
+                aria-label={show ? 'Hide password' : 'Show password'}
+              >
                 {show ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
               <button type="button" className="icon-btn" onClick={() => setGen(!gen)} aria-label="Generate password">

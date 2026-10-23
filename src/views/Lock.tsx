@@ -18,6 +18,18 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
   const [shake, setShake] = useState(false);
   const [forgot, setForgot] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pwRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
+
+  // Safari's "Strong Password" (and other password managers) fill these fields without firing
+  // input events, so React's state can be stale. Always take the values from the fields themselves.
+  const readFields = () => {
+    const p = pwRef.current?.value ?? pw;
+    const c = confirmRef.current?.value ?? confirm;
+    if (p !== pw) setPw(p);
+    if (c !== confirm) setConfirm(c);
+    return { p, c };
+  };
   const dark = isDark(theme);
 
   const fail = (msg: string) => {
@@ -29,14 +41,16 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    const { p, c } = readFields();
+    if (!p) return fail('Enter your master password.');
     if (isNew) {
-      if (pw.length < 10) return fail('Use at least 10 characters.');
-      if (strength(pw).score < 2) return fail('Pick something harder to guess. A short sentence works well.');
-      if (pw !== confirm) return fail("The two passwords don't match.");
+      if (p.length < 10) return fail('Use at least 10 characters.');
+      if (strength(p).score < 2) return fail('Pick something harder to guess. A short sentence works well.');
+      if (p !== c) return fail("The two passwords don't match.");
     }
     setBusy(true);
     try {
-      await (isNew ? create(pw) : unlock(pw));
+      await (isNew ? create(p) : unlock(p));
     } catch (err) {
       fail(err instanceof WrongPasswordError ? 'Wrong password. Try again.' : (err as Error).message);
       setBusy(false);
@@ -107,9 +121,11 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
               <span>Master password</span>
               <div className="input-wrap">
                 <input
+                  ref={pwRef}
                   className="input"
                   style={{ height: 46 }}
                   type={show ? 'text' : 'password'}
+                  onBlur={readFields}
                   value={pw}
                   onChange={(e) => (setPw(e.target.value), setError(''))}
                   autoFocus
@@ -117,7 +133,17 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
                   aria-invalid={!!error}
                 />
                 <div className="addons">
-                  <button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'}>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    // Keep the cursor in the field.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      readFields();
+                      setShow((s) => !s);
+                    }}
+                    aria-label={show ? 'Hide password' : 'Show password'}
+                  >
                     {show ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -127,7 +153,16 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
             {isNew && (
               <label className="field">
                 <span>Confirm password</span>
-                <input className="input" style={{ height: 46 }} type={show ? 'text' : 'password'} value={confirm} onChange={(e) => (setConfirm(e.target.value), setError(''))} autoComplete="new-password" />
+                <input
+                  ref={confirmRef}
+                  className="input"
+                  style={{ height: 46 }}
+                  type={show ? 'text' : 'password'}
+                  value={confirm}
+                  onChange={(e) => (setConfirm(e.target.value), setError(''))}
+                  onBlur={readFields}
+                  autoComplete="new-password"
+                />
               </label>
             )}
             {error && (
@@ -135,7 +170,7 @@ export function LockScreen({ theme, setTheme }: { theme: ThemePref; setTheme: (t
                 {error}
               </div>
             )}
-            <button className="btn primary lg block" disabled={busy || !pw}>
+            <button className="btn primary lg block" disabled={busy}>
               {busy ? <Loader2 size={17} className="spin" /> : null}
               {busy ? (isNew ? 'Creating vault…' : 'Unlocking…') : isNew ? 'Create vault' : 'Unlock'}
               {!busy && <ArrowRight size={17} />}

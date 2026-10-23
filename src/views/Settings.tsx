@@ -59,8 +59,14 @@ export function SettingsView() {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submitPw = async (e: FormEvent) => {
+  const submitPw = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    // Read the fields directly: a password manager may have filled them without an input event.
+    const f = new FormData(e.currentTarget);
+    const cur = String(f.get('current') ?? '');
+    const next = String(f.get('next') ?? '');
+    const confirm = String(f.get('confirm') ?? '');
+    if (!cur || !next) return setPwMsg({ ok: false, text: 'Enter your current and new password.' });
     if (next.length < 10 || strength(next).score < 2) return setPwMsg({ ok: false, text: 'Choose a longer, harder-to-guess password.' });
     if (next !== confirm) return setPwMsg({ ok: false, text: "The new passwords don't match." });
     setBusy(true);
@@ -236,14 +242,14 @@ export function SettingsView() {
             </p>
           ) : (
             <form className="stack" onSubmit={submitPw}>
-              <input className="input" type="password" placeholder="Current password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
+              <input className="input" type="password" name="current" placeholder="Current password" value={cur} onChange={(e) => setCur(e.target.value)} onBlur={(e) => setCur(e.currentTarget.value)} autoComplete="current-password" />
               <div>
-                <input className="input" type="password" placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />
+                <input className="input" type="password" name="next" placeholder="New password" value={next} onChange={(e) => setNext(e.target.value)} onBlur={(e) => setNext(e.currentTarget.value)} autoComplete="new-password" />
                 <StrengthMeter password={next} />
               </div>
-              <input className="input" type="password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" />
+              <input className="input" type="password" name="confirm" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} onBlur={(e) => setConfirm(e.currentTarget.value)} autoComplete="new-password" />
               {pwMsg && <div className={pwMsg.ok ? 'up' : 'error-text'}>{pwMsg.text}</div>}
-              <button className="btn" disabled={busy || !cur || !next}>
+              <button className="btn" disabled={busy}>
                 {busy ? 'Re-encrypting…' : 'Change password'}
               </button>
             </form>
