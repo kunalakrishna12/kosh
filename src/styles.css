@@ -730,18 +730,26 @@ kbd {
   border-color: color-mix(in srgb, var(--gold) 60%, transparent);
   box-shadow: 0 0 0 4px var(--gold-soft);
 }
+/* Buttons sit beside the input, not on top of it: Safari draws its own
+   password/AutoFill button inside the field's right edge and would swallow the clicks. */
 .input-wrap {
-  position: relative;
   display: flex;
   align-items: center;
+  gap: 6px;
 }
 .input-wrap .input {
-  padding-right: 76px;
+  flex: 1;
+  min-width: 0;
 }
 .input-wrap .addons {
-  position: absolute;
-  right: 4px;
   display: flex;
+  gap: 2px;
+}
+.input-wrap .addons .icon-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
 }
 .amount-input {
   height: 64px;
