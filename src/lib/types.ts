@@ -316,6 +316,8 @@ export interface Settings {
   /** Month the financial year starts in, 1–12 (April in India, January elsewhere). */
   fyStartMonth: number;
   company: CompanyProfile;
+  /** Overall monthly spending limit per book; 0 means not set. */
+  monthlyBudget: Record<Book, number>;
 }
 
 export interface VaultData {
@@ -372,6 +374,7 @@ export function emptyVault(): VaultData {
       autoLockMinutes: 5,
       fyStartMonth: 4,
       company: emptyCompany(),
+      monthlyBudget: { personal: 0, company: 0 },
     },
     transactions: [],
     transfers: [],

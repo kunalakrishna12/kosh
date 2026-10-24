@@ -71,7 +71,7 @@ describe('app smoke test', () => {
     ['Insights', 'Observations'],
     ['Passwords', 'health'],
     ['Invoices', 'Waiting to be paid'],
-    ['Budgets', 'Budgeted'],
+    ['Budgets', 'Safe to spend'],
     ['Documents', 'Expiring soon'],
     ['Settings', 'Company details for invoices'],
     ['Overview', 'Due soon'],
@@ -213,6 +213,19 @@ describe('app smoke test', () => {
     expect(cells[0].textContent).toBe('₹1,500');
     expect(cells[1].textContent).toBe('₹1,650');
     expect(cells[2].textContent).toBe('+10.00%+₹150');
+  });
+
+  it('warns before an expense goes over budget', async () => {
+    await click(navButton('Overview'));
+    await act(async () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true })));
+    const amount = document.querySelector('.amount-input') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(amount, '500000');
+      amount.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(document.querySelector('.budget-note.over')?.textContent).toContain('monthly budget goes over by');
+    expect(document.querySelector('button[form="tx-form"]')?.textContent).toBe('Add anyway');
+    await closeModal();
   });
 
   it('logged no errors', () => {

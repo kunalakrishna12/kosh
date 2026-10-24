@@ -32,7 +32,7 @@ export type Dialog =
   | { type: 'secret'; initial?: Secret; defaults?: { book?: Book } }
   | { type: 'generator' }
   | { type: 'invoice'; initial?: Invoice }
-  | { type: 'budget'; initial?: Budget }
+  | { type: 'budget'; initial?: Budget; defaults?: { book?: Book; category?: string } }
   | { type: 'import' }
   | { type: 'account'; initial?: Account; defaults?: { book?: Book } }
   | { type: 'move'; initial?: Move; defaults?: { from?: string; to?: string } }

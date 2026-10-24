@@ -10,6 +10,8 @@ import { accountBalances } from '../lib/analytics';
 import { occurrences } from '../lib/bills';
 import { vaultHealth } from '../lib/passwords';
 import { usePaySip } from './Accounts';
+import { OverallCard } from './Budgets';
+import { overallStatus } from '../lib/budgets';
 import { usePayBill } from './Bills';
 import type { Book } from '../lib/types';
 import { useNav } from '../nav';
@@ -265,6 +267,13 @@ export function Overview() {
               </div>
             </div>
             <div className="stack" style={{ gap: 16 }}>
+              {(['personal', 'company'] as Book[])
+                .filter((bk) => data.settings.monthlyBudget[bk] > 0)
+                .map((bk) => (
+                  <div key={bk} role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => nav.go('budgets')} onKeyDown={(e) => e.key === 'Enter' && nav.go('budgets')}>
+                    <OverallCard o={overallStatus(data, bk)} isCurrent compact title={`${bk === 'company' ? company : 'Your'} budget this month`} />
+                  </div>
+                ))}
               {data.accounts.length > 0 && (
                 <div className="card">
                   <div className="card-h">

@@ -1,10 +1,11 @@
-import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Gauge, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
 import { activeAccounts, defaultAccountId, masked } from '../lib/accounts';
 import { advance } from '../lib/bills';
+import { entryImpact } from '../lib/budgets';
 import { taxPart } from '../lib/reports';
 import { useNav, type TxDefaults } from '../nav';
 import {
@@ -88,6 +89,30 @@ export function TxForm({
   const [note, setNote] = useState(initial?.note ?? defaults?.note ?? '');
   const [taxRate, setTaxRate] = useState(initial?.taxRate ?? defaults?.taxRate ?? 0);
   const nav = useNav();
+
+  // Live budget check for expenses: warns before the entry is saved, never blocks a real record.
+  const budgetNote = useMemo(() => {
+    const minor = toMinor(amount);
+    if (kind !== 'expense' || !minor) return null;
+    const imp = entryImpact(data, { book, category: category.trim() || 'Other', amount: minor, date }, initial);
+    const lines: { level: 'ok' | 'near' | 'over'; text: string }[] = [];
+    const check = (label: string, spent: number, limit: number) => {
+      const level = spent > limit ? 'over' : spent >= limit * 0.9 ? 'near' : 'ok';
+      lines.push({
+        level,
+        text:
+          level === 'over'
+            ? `${label} goes over by ${money.full(spent - limit)} (${money.full(spent)} of ${money.full(limit)}).`
+            : `${label}: ${money.full(limit - spent)} left after this (${Math.round((spent / limit) * 100)}% used).`,
+      });
+    };
+    if (imp.category) check(`${imp.category.name} budget`, imp.category.spent, imp.category.limit);
+    if (imp.overall) check(`${book === 'company' ? 'Company' : 'Your'} monthly budget`, imp.overall.spent, imp.overall.limit);
+    if (!lines.length) return null;
+    const rank = { ok: 0, near: 1, over: 2 };
+    const level = lines.reduce((a, l) => (rank[l.level] > rank[a] ? l.level : a), 'ok' as 'ok' | 'near' | 'over');
+    return { level, text: lines.map((l) => l.text).join(' ') };
+  }, [data, kind, amount, book, category, date, initial, money]);
   const attachments = initial ? data.docs.filter((d) => d.linkId === initial.id) : [];
   const billId = initial?.billId ?? defaults?.billId;
   const bill = billId ? data.bills.find((b) => b.id === billId) : undefined;
@@ -157,8 +182,8 @@ export function TxForm({
             <button className="btn ghost" onClick={onClose}>
               Cancel
             </button>
-            <button className="btn primary" form="tx-form">
-              {initial ? 'Save' : 'Add'}
+            <button className={`btn primary ${budgetNote?.level === 'over' ? 'danger solid' : ''}`} form="tx-form">
+              {budgetNote?.level === 'over' ? (initial ? 'Save anyway' : 'Add anyway') : initial ? 'Save' : 'Add'}
             </button>
           </div>
         </>
@@ -187,6 +212,12 @@ export function TxForm({
         </div>
         <AmountInput value={amount} onChange={(v) => (setAmount(v), setError(''))} symbol={money.symbol} />
         {error && <div className="error-text">{error}</div>}
+        {budgetNote && (
+          <div className={`budget-note ${budgetNote.level}`} role="status">
+            <Gauge size={15} />
+            <span>{budgetNote.text}</span>
+          </div>
+        )}
         <div className="form-grid">
           <Field label="Category">
             <input className="input" list="tx-cats" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={categories[0]} />

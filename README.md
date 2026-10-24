@@ -59,8 +59,11 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - See what's waiting to be paid, what's overdue, and your average days to get paid.
 
 ### 🎯 Budgets
-- Monthly limits per category, for you and the company.
-- **Pace tracking**: where you'll land by month end at today's rate, and how much you can still spend per day.
+- **One monthly budget** for you and one for the company, covering every expense, bills included.
+- **Safe to spend**: what's left after spending so far *and* bills still due this month, with a daily allowance.
+- **A warning before you go over**: the entry form shows what an expense does to its category and monthly budget as you type.
+- **Realistic month-end projection** from how you usually spend the rest of the month (rent and payroll land on fixed days), plus a day-by-day chart against an even pace.
+- Optional limits per category, a list of spending with no category budget, and 6 months of history showing how often you stayed within budget.
 - **Suggested budgets** from your last three months of spending.
 - Early warnings in Insights before you go over.
 

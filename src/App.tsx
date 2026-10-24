@@ -271,7 +271,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
 
       {dialog?.type === 'tx' && <TxForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'invoice' && <InvoiceForm initial={dialog.initial} onClose={close} />}
-      {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} onClose={close} />}
+      {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'import' && <ImportForm onClose={close} />}
       {dialog?.type === 'account' && <AccountForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'sip' && <SipForm initial={dialog.initial} onClose={close} />}

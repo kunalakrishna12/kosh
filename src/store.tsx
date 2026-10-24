@@ -47,6 +47,7 @@ function migrate(d: VaultData): VaultData {
       ...d.settings,
       openingBalance: { ...base.settings.openingBalance, ...d.settings?.openingBalance },
       company: { ...base.settings.company, ...d.settings?.company },
+      monthlyBudget: { ...base.settings.monthlyBudget, ...d.settings?.monthlyBudget },
     },
   };
 }

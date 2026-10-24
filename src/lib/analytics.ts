@@ -1,5 +1,5 @@
 import { billSummary, priceChange } from './bills';
-import { budgetStatus } from './budgets';
+import { budgetStatus, overallStatus } from './budgets';
 import { invoiceState, totals } from './invoices';
 import { addDays, lastMonths, monthKey, today } from './dates';
 import type { Book, Project, Transfer, TxKind, VaultData } from './types';
@@ -314,6 +314,16 @@ export function insights(data: VaultData, fmt: (minor: number) => string, end = 
       title: `${fmt(sum)} in overdue invoices`,
       detail: `${overdueInv.map((i) => i.clientName || i.number).slice(0, 3).join(', ')}. Send a reminder from Invoices.`,
     });
+  }
+
+  for (const book of ['personal', 'company'] as Book[]) {
+    if (!data.settings.monthlyBudget[book]) continue;
+    const o = overallStatus(data, book, end.slice(0, 7), end);
+    const who = book === 'company' ? names.company : 'Your';
+    if (o.state === 'over') out.unshift({ tone: 'warn', title: `${who} monthly budget is exceeded`, detail: `${fmt(o.spent)} spent against ${fmt(o.limit)}, over by ${fmt(o.spent - o.limit)}.` });
+    else if (o.safeToSpend < 0) out.unshift({ tone: 'warn', title: `${who} bills will push you over budget`, detail: `${fmt(o.committed)} in bills is still due this month and only ${fmt(o.limit - o.spent)} of the budget is left.` });
+    else if (o.state === 'near' || o.state === 'pace')
+      out.push({ tone: 'warn', title: `${who} budget: ${fmt(o.perDayLeft)} a day for ${o.daysLeft} days`, detail: `Month end at this pace ≈ ${fmt(o.projected)} against ${fmt(o.limit)}. Safe to spend: ${fmt(o.safeToSpend)}.` });
   }
 
   for (const s of budgetStatus(data, end.slice(0, 7), end)) {

@@ -27,6 +27,7 @@ export function demoVault(): VaultData {
   v.settings.companyName = 'Lumen Studio';
   // Opening money lives in the accounts below.
   v.settings.openingBalance = { personal: 0, company: 0 };
+  v.settings.monthlyBudget = { personal: 1_40_000_00, company: 9_00_000_00 };
 
   const months = lastMonths(12);
   const end = today();

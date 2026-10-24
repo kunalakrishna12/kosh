@@ -110,3 +110,49 @@ describe('document encryption', () => {
     expect(isBackup(vault)).toBe(false);
   });
 });
+
+describe('monthly budget', () => {
+  const tx = (amount: number, date: string, category = 'Dining'): Transaction => ({ id: `${category}${date}${amount}`, book: 'personal', kind: 'expense', amount, category, date, note: '', createdAt: 0 });
+
+  it('counts bills still due when working out what is safe to spend', async () => {
+    const { overallStatus } = await import('./budgets');
+    const v = {
+      ...emptyVault(),
+      settings: { ...emptyVault().settings, monthlyBudget: { personal: 40_000_00, company: 0 } },
+      transactions: [tx(10_000_00, '2026-10-03'), tx(5_000_00, '2026-10-08', 'Shopping')],
+      bills: [{ id: 'rent', book: 'personal' as const, name: 'Rent', vendor: '', kind: 'rent' as const, amount: 12_000_00, variable: false, frequency: 'monthly' as const, nextDue: '2026-10-25', category: 'Rent', autopay: false, active: true, notes: '', createdAt: 0 }],
+    };
+    const o = overallStatus(v, 'personal', '2026-10', '2026-10-11');
+    expect(o.spent).toBe(15_000_00);
+    expect(o.committed).toBe(12_000_00);
+    expect(o.safeToSpend).toBe(13_000_00);
+    expect(o.daysLeft).toBe(21);
+    expect(o.perDayLeft).toBe(61_900); // ₹13,000 / 21 days, rounded to whole rupees
+    // No history yet: assume the pace so far continues (₹15,000 over 11 days → ₹27,273 more), never less than bills due.
+    expect(o.projected).toBe(42_273_00);
+  });
+
+  it('projects from what usually happens in the rest of the month', async () => {
+    const { usualRestOfMonth } = await import('./budgets');
+    const v = { ...emptyVault(), transactions: ['07', '08', '09'].flatMap((m) => [tx(30_000_00, `2026-${m}-02`, 'Rent'), tx(3_000_00, `2026-${m}-20`)]) };
+    // Rent lands on the 2nd, so by the 10th only the late-month spending is still to come.
+    expect(usualRestOfMonth(v, 'personal', '2026-10', 10)).toBe(3_000_00);
+  });
+
+  it('shows what an expense does to its budgets before it is saved', async () => {
+    const { entryImpact } = await import('./budgets');
+    const v = {
+      ...emptyVault(),
+      settings: { ...emptyVault().settings, monthlyBudget: { personal: 20_000_00, company: 0 } },
+      budgets: [{ id: 'd', book: 'personal' as const, category: 'Dining', amount: 5_000_00, createdAt: 0 }],
+      transactions: [tx(4_000_00, '2026-10-03')],
+    };
+    expect(entryImpact(v, { book: 'personal', category: 'Dining', amount: 1_500_00, date: '2026-10-10' })).toEqual({
+      category: { name: 'Dining', spent: 5_500_00, limit: 5_000_00 },
+      overall: { spent: 5_500_00, limit: 20_000_00 },
+    });
+    // Editing the existing ₹4,000 entry to ₹4,500 must not count it twice.
+    const prev = v.transactions[0];
+    expect(entryImpact(v, { book: 'personal', category: 'Dining', amount: 4_500_00, date: '2026-10-03' }, prev).category?.spent).toBe(4_500_00);
+  });
+});
