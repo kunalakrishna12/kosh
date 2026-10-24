@@ -155,13 +155,13 @@ describe('app smoke test', () => {
     const card = [...container.querySelectorAll('.acct-card[role="button"]')].find((c) => c.textContent?.includes('Cash in hand'))!;
     await click(card);
     await click([...document.querySelectorAll('.modal-f .btn')].find((b) => b.textContent?.includes('Update balance')));
-    const input = document.querySelector('.modal .input.num') as HTMLInputElement;
+    const input = document.querySelector('#value-form input') as HTMLInputElement;
     await act(async () => {
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       set.call(input, '1234');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await click([...document.querySelectorAll('.modal .btn')].find((b) => b.textContent?.includes('Save balance')));
+    await click(document.querySelector('button[form="value-form"]'));
     expect(document.querySelector('.modal .stat-v')?.textContent).toContain('1,234');
     await closeModal();
     expect(card.textContent).toContain('1,234');
@@ -196,6 +196,23 @@ describe('app smoke test', () => {
     expect(fund.querySelectorAll('.num')[1].textContent).toBe('₹1,500');
     // Funds are listed once, under Investments, not again among bank accounts.
     expect([...container.querySelectorAll('.acct-card')].some((c) => c.textContent?.includes('Test Small Cap Fund'))).toBe(false);
+  });
+
+  it('edits the current value of an existing fund from its row', async () => {
+    await click(navButton('Accounts & cash'));
+    const row = () => [...container.querySelectorAll('.fund-row')].find((r) => r.textContent?.includes('Test Small Cap Fund'))!;
+    await click(row().querySelector('[aria-label^="Update current value"]'));
+    const input = document.querySelector('#value-form input') as HTMLInputElement;
+    expect(input.value).toBe('1500');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '1650');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click(document.querySelector('.modal-f .btn.primary'));
+    const cells = row().querySelectorAll('.num');
+    expect(cells[0].textContent).toBe('₹1,500');
+    expect(cells[1].textContent).toBe('₹1,650');
+    expect(cells[2].textContent).toBe('+10.0%');
   });
 
   it('logged no errors', () => {

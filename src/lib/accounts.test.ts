@@ -106,3 +106,17 @@ describe('investments and SIPs', () => {
     expect(monthlySipTotal(v)).toBe(1_500);
   });
 });
+
+describe('setting an account to its real value', () => {
+  it('records only the difference, and repeat edits just correct it', async () => {
+    const { setAccountValue, investmentStats } = await import('./accounts');
+    const base = { ...emptyVault(), accounts: [acc('fund', { kind: 'investment', opening: 20_000_00 })] };
+    let v = setAccountValue(base, 'fund', 19_741_62);
+    expect(investmentStats(v, 'fund')).toMatchObject({ invested: 20_000_00, value: 19_741_62, gain: -258_38 });
+    // Editing it again later: invested stays, value and gain follow.
+    v = setAccountValue(v, 'fund', 21_000_00);
+    expect(investmentStats(v, 'fund')).toMatchObject({ invested: 20_000_00, value: 21_000_00, gain: 1_000_00 });
+    // Same value: nothing new recorded.
+    expect(setAccountValue(v, 'fund', 21_000_00)).toBe(v);
+  });
+});

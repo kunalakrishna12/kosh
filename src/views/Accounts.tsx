@@ -4,7 +4,7 @@ import { Sparkline } from '../components/charts';
 import { BookLabel } from '../components/forms';
 import { activityOf, ActivityRow } from '../components/rows';
 import { Empty, Field, Modal, Seg, useCopy, useToast } from '../components/ui';
-import { ACCOUNT_COLORS, activeAccounts, balanceHistory, defaultAccountId, investmentStats, investmentTotals, masked, monthlySipTotal, paySip } from '../lib/accounts';
+import { ACCOUNT_COLORS, activeAccounts, balanceHistory, defaultAccountId, investmentStats, investmentTotals, masked, monthlySipTotal, paySip, setAccountValue } from '../lib/accounts';
 import { accountBalances } from '../lib/analytics';
 import { addDays, dayLabel, today } from '../lib/dates';
 import { toBalance, toInput, toMinor } from '../lib/money';
@@ -286,7 +286,7 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
           {details.every(([, v]) => !v) && <span className="faint">No bank details saved.</span>}
         </div>
       </div>
-      {adjusting && <UpdateBalance a={a} balance={balance} onDone={() => setAdjusting(false)} />}
+      {adjusting && <UpdateValueModal a={a} onClose={() => setAdjusting(false)} />}
       <div className="card flush mt" style={{ maxHeight: 300, overflowY: 'auto', boxShadow: 'none' }}>
         {rows.length ? (
           rows.map((r) => <ActivityRow key={r.kind === 'tx' ? r.tx.id : r.kind === 'transfer' ? r.tr.id : r.mv.id} a={r} />)
@@ -300,63 +300,71 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
   );
 }
 
-/** "My wallet actually has ₹3,200": records the difference as a balance correction. */
-function UpdateBalance({ a, balance, onDone }: { a: Account; balance: number; onDone: () => void }) {
-  const { update, money } = useVault();
+/** "My wallet actually has ₹3,200" / "the fund is worth ₹19,741": sets the balance to what you see. */
+export function UpdateValueModal({ a, onClose }: { a: Account; onClose: () => void }) {
+  const { data, update, money } = useVault();
   const toast = useToast();
-  const [actual, setActual] = useState('');
-  const target = actual.trim() === '' ? null : toBalance(actual);
+  const balance = accountBalances(data).byAccount.get(a.id) ?? 0;
+  const [actual, setActual] = useState(toInput(balance));
+  const target = toBalance(actual);
   const diff = target === null ? 0 : target - balance;
-  const save = () => {
-    if (target === null || diff === 0) return onDone();
-    update((d) => ({
-      ...d,
-      transactions: [
-        {
-          id: crypto.randomUUID(),
-          book: a.book,
-          kind: diff > 0 ? 'income' : 'expense',
-          amount: Math.abs(diff),
-          category: 'Balance adjustment',
-          date: today(),
-          note: `${a.name} balance updated to ${money.full(target)}`,
-          accountId: a.id,
-          adjustment: true,
-          createdAt: Date.now(),
-        },
-        ...d.transactions,
-      ],
-    }));
-    toast(`${a.name} set to ${money.full(target)}`);
-    onDone();
+  const isInvestment = a.kind === 'investment';
+  const save = (e?: FormEvent) => {
+    e?.preventDefault();
+    if (target === null) return;
+    if (diff) {
+      update((d) => setAccountValue(d, a.id, target));
+      toast(`${a.name} ${isInvestment ? 'value' : 'balance'} set to ${money.full(target)}`);
+    }
+    onClose();
   };
   return (
-    <div className="card mt" style={{ background: 'var(--bg-2)' }}>
-      <div className="form-grid">
-        <Field
-          label={a.kind === 'investment' ? 'Current value in your app (Groww, Zerodha, the AMC…)' : `What ${a.kind === 'cash' ? 'you actually have in hand' : 'the bank shows'} today`}
-          hint={a.kind === 'card' ? 'For a card, enter what you owe as a negative number, like -12000.' : undefined}
-        >
-          <input className="input num" inputMode="decimal" value={actual} onChange={(e) => setActual(e.target.value.replace(/[^\d.,-]/g, ''))} placeholder={toInput(Math.abs(balance))} autoFocus />
-        </Field>
-        <div className="stack" style={{ alignContent: 'end', gap: 8 }}>
-          {target !== null && diff !== 0 && (
-            <span className="muted" style={{ fontSize: 13 }}>
-              Records a {diff > 0 ? 'gain' : a.kind === 'investment' ? 'loss' : 'shortfall'} of <b className={diff > 0 ? 'up' : 'down'}>{money.full(Math.abs(diff))}</b>. It won't count as income or
-              spending.
-            </span>
-          )}
-          <div className="row">
-            <button className="btn ghost sm" onClick={onDone}>
-              Cancel
-            </button>
-            <button className="btn primary sm" onClick={save} disabled={target === null}>
-              Save balance
-            </button>
-          </div>
+    <Modal
+      title={isInvestment ? `Current value · ${a.name}` : `Update balance · ${a.name}`}
+      onClose={onClose}
+      footer={
+        <div className="right">
+          <button className="btn ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" form="value-form" disabled={target === null}>
+            Save
+          </button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <form id="value-form" className="stack" onSubmit={save}>
+        <Field
+          label={isInvestment ? 'What your app shows today (Groww, Zerodha, the AMC…)' : `What ${a.kind === 'cash' ? 'you actually have in hand' : 'the bank shows'} today`}
+          hint={a.kind === 'card' ? 'For a card, enter what you owe as a negative number, like -12000.' : `Kosh has ${money.full(balance)}.`}
+        >
+          <div className="amount-wrap">
+            <span className="cur">{money.symbol}</span>
+            <input
+              className="input amount-input"
+              inputMode="decimal"
+              value={actual}
+              onChange={(e) => setActual(e.target.value.replace(/[^\d.,-]/g, ''))}
+              onFocus={(e) => e.currentTarget.select()}
+              autoFocus
+              aria-label={isInvestment ? 'Current value' : 'Actual balance'}
+            />
+          </div>
+        </Field>
+        {target === null ? (
+          <div className="error-text">Enter a number, like 19741.62</div>
+        ) : diff !== 0 ? (
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Records a {diff > 0 ? 'gain' : isInvestment ? 'loss' : 'shortfall'} of <b className={diff > 0 ? 'up' : 'down'}>{money.full(Math.abs(diff))}</b>
+            {isInvestment ? ' on this fund.' : '.'} It won't count as income or spending.
+          </p>
+        ) : (
+          <p className="faint" style={{ margin: 0, fontSize: 13 }}>
+            Same as Kosh already has.
+          </p>
+        )}
+      </form>
+    </Modal>
   );
 }
 
@@ -390,7 +398,7 @@ export function AccountForm({ initial, defaults, onClose }: { initial?: Account;
   const set = (patch: Partial<Account>) => setA((x) => ({ ...x, ...patch }));
   const isBank = a.kind === 'savings' || a.kind === 'current' || a.kind === 'deposit';
   const isInvestment = a.kind === 'investment';
-  const [currentValue, setCurrentValue] = useState('');
+  const [currentValue, setCurrentValue] = useState(() => (initial && initial.kind === 'investment' ? toInput(accountBalances(data).byAccount.get(initial.id) ?? 0) : ''));
   const used = initial && (data.transactions.some((t) => t.accountId === a.id) || data.moves.some((m) => m.from === a.id || m.to === a.id));
 
   const submit = (e: FormEvent) => {
@@ -401,18 +409,13 @@ export function AccountForm({ initial, defaults, onClose }: { initial?: Account;
     if (o === null) return setError('Enter the opening balance as a number, like 25000 or -4500.');
     const out = { ...a, name, opening: o };
     // For a new investment, "current value" differs from what was invested by the gain so far.
-    const value = isInvestment && !initial && currentValue.trim() ? toBalance(currentValue) : null;
-    const gain = value !== null ? value - o : 0;
-    update((d) => ({
-      ...d,
-      accounts: initial ? d.accounts.map((x) => (x.id === out.id ? out : x)) : [...d.accounts, out],
-      transactions: gain
-        ? [
-            { id: crypto.randomUUID(), book: out.book, kind: gain > 0 ? 'income' : 'expense', amount: Math.abs(gain), category: 'Balance adjustment', date: today(), note: `${name} value updated`, accountId: out.id, adjustment: true, createdAt: Date.now() },
-            ...d.transactions,
-          ]
-        : d.transactions,
-    }));
+    const value = isInvestment && currentValue.trim() ? toBalance(currentValue) : null;
+    if (isInvestment && currentValue.trim() && value === null) return setError('Enter the current value as a number.');
+    update((d) => {
+      const next = { ...d, accounts: initial ? d.accounts.map((x) => (x.id === out.id ? out : x)) : [...d.accounts, out] };
+      // Applied after the invested amount is saved, so the difference is pure gain or loss.
+      return value !== null ? setAccountValue(next, out.id, value) : next;
+    });
     toast(initial ? 'Account saved' : `${name} added`);
     onClose();
   };
@@ -493,8 +496,8 @@ export function AccountForm({ initial, defaults, onClose }: { initial?: Account;
         >
           <input className="input num" inputMode="decimal" value={opening} onChange={(e) => (setOpening(e.target.value.replace(/[^\d.,-]/g, '')), setError(''))} placeholder="0" />
         </Field>
-        {isInvestment && !initial && (
-          <Field label="Current value (optional)" hint="From your app. Kosh shows the gain.">
+        {isInvestment && (
+          <Field label={initial ? 'Current value' : 'Current value (optional)'} hint="From your app. Kosh shows the gain.">
             <input className="input num" inputMode="decimal" value={currentValue} onChange={(e) => setCurrentValue(e.target.value.replace(/[^\d.,-]/g, ''))} placeholder={opening || '0'} />
           </Field>
         )}
@@ -673,6 +676,7 @@ export function usePaySip() {
 
 function Investments({ onOpen }: { onOpen: (id: string) => void }) {
   const { data, money } = useVault();
+  const [valuing, setValuing] = useState<Account | null>(null);
   const nav = useNav();
   const pay = usePaySip();
   const t = today();
@@ -742,23 +746,27 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
               <span>Invested</span>
               <span>Value</span>
               <span>Return</span>
+              <span />
             </div>
             {activeAccounts(data)
               .filter((a) => a.kind === 'investment')
               .map((a) => {
                 const s = investmentStats(data, a.id);
                 return (
-                  <button key={a.id} className="fund-row" onClick={() => onOpen(a.id)} title={a.name}>
-                    <span className="fund-name">
+                  <div key={a.id} className="fund-row">
+                    <button className="fund-name" onClick={() => onOpen(a.id)} title={a.name}>
                       <i className="swatch" style={{ background: a.color }} />
                       <span>{a.name}</span>
-                    </span>
+                    </button>
                     <span className="num faint">{money.full(s.invested)}</span>
                     <span className="num">{money.full(s.value)}</span>
                     <span className={`num ${s.gain > 0 ? 'up' : s.gain < 0 ? 'down' : 'faint'}`}>
                       {s.returnPct === null || s.gain === 0 ? '—' : `${s.gain > 0 ? '+' : '−'}${Math.abs(s.returnPct * 100).toFixed(1)}%`}
                     </span>
-                  </button>
+                    <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setValuing(a)} aria-label={`Update current value of ${a.name}`} title="Update current value">
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                 );
               })}
           </div>
@@ -813,6 +821,7 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
         </div>
       </div>
+      {valuing && <UpdateValueModal a={valuing} onClose={() => setValuing(null)} />}
     </>
   );
 }
@@ -835,6 +844,9 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const isNewFund = toAccountId === 'new';
+  const fundBalance = (id: string) => accountBalances(data).byAccount.get(id) ?? 0;
+  // For an existing fund, its current value can be corrected right here.
+  const [fundValue, setFundValue] = useState(() => (toAccountId !== 'new' ? toInput(fundBalance(toAccountId)) : ''));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -846,6 +858,8 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
     const already = toBalance(invested);
     if (isNewFund && already === null) return setError('Enter the amount already invested as a number, or leave it empty.');
     const currentValue = isNewFund && value.trim() ? toBalance(value) : null;
+    const existingValue = !isNewFund && fundValue.trim() ? toBalance(fundValue) : null;
+    if (!isNewFund && fundValue.trim() && existingValue === null) return setError('Enter the current value as a number.');
 
     update((d) => {
       let accounts = d.accounts;
@@ -880,7 +894,8 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
         }
       }
       const sip: Sip = { id: initial?.id ?? crypto.randomUUID(), name: fundName, fromAccountId, toAccountId: fundId, amount: minor, frequency, nextDue, autopay, active, createdAt: initial?.createdAt ?? Date.now() };
-      return { ...d, accounts, transactions, sips: initial ? d.sips.map((x) => (x.id === sip.id ? sip : x)) : [...d.sips, sip] };
+      const next = { ...d, accounts, transactions, sips: initial ? d.sips.map((x) => (x.id === sip.id ? sip : x)) : [...d.sips, sip] };
+      return existingValue !== null ? setAccountValue(next, fundId, existingValue) : next;
     });
     toast(initial ? 'SIP saved' : `SIP of ${money.full(minor)} added`);
     onClose();
@@ -944,7 +959,14 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
           </select>
         </Field>
         <Field label="Invests into">
-          <select className="select" value={toAccountId} onChange={(e) => setToAccountId(e.target.value)}>
+          <select
+            className="select"
+            value={toAccountId}
+            onChange={(e) => {
+              setToAccountId(e.target.value);
+              setFundValue(e.target.value !== 'new' ? toInput(fundBalance(e.target.value)) : '');
+            }}
+          >
             {funds.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -953,6 +975,11 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
             <option value="new">A new fund (named above)</option>
           </select>
         </Field>
+        {!isNewFund && (
+          <Field label="Current value of this fund" hint="From your app. Change it to update your gain." className="full">
+            <input className="input num" inputMode="decimal" value={fundValue} onChange={(e) => (setFundValue(e.target.value.replace(/[^\d.,-]/g, '')), setError(''))} />
+          </Field>
+        )}
         {isNewFund && (
           <>
             <Field label="Platform or AMC">

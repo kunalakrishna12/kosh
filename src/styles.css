@@ -2072,7 +2072,7 @@ kbd {
 }
 .fund-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 100px 100px 64px;
+  grid-template-columns: minmax(0, 1fr) 100px 100px 64px 28px;
   gap: 12px;
   align-items: center;
   padding: 9px 0;
@@ -2086,7 +2086,7 @@ kbd {
 .fund-row:last-child {
   border-bottom: 0;
 }
-button.fund-row:hover .fund-name span {
+button.fund-name:hover span {
   color: var(--gold);
 }
 .fund-head {
@@ -2103,6 +2103,12 @@ button.fund-row:hover .fund-name span {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 .fund-name span {
   overflow: hidden;
@@ -2351,7 +2357,7 @@ button.fund-row:hover .fund-name span {
     flex: 1;
   }
   .fund-row {
-    grid-template-columns: minmax(0, 1fr) 84px 56px;
+    grid-template-columns: minmax(0, 1fr) 84px 56px 28px;
   }
   .fund-row > :nth-child(2) {
     display: none;

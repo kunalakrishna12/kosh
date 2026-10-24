@@ -95,3 +95,32 @@ export function paySip(data: VaultData, sip: Sip, date: string, amount = sip.amo
   const move: Move = { id: crypto.randomUUID(), from: sip.fromAccountId, to: sip.toAccountId, amount, date, note: `SIP · ${sip.name || fund?.name || 'investment'}`, sipId: sip.id, createdAt: Date.now() };
   return { ...data, moves: [move, ...data.moves], sips: data.sips.map((s) => (s.id === sip.id ? { ...s, nextDue: advance(s.nextDue, s.frequency) } : s)) };
 }
+
+/**
+ * Sets an account to the balance you actually see (cash counted, bank app, fund value) by
+ * recording the difference as an adjustment: it moves the balance but is never income or spending.
+ */
+export function setAccountValue(data: VaultData, accountId: string, target: number, date = today()): VaultData {
+  const a = data.accounts.find((x) => x.id === accountId);
+  if (!a) return data;
+  const diff = target - (accountBalances(data, date).byAccount.get(accountId) ?? 0);
+  if (!diff) return data;
+  return {
+    ...data,
+    transactions: [
+      {
+        id: crypto.randomUUID(),
+        book: a.book,
+        kind: diff > 0 ? 'income' : 'expense',
+        amount: Math.abs(diff),
+        category: 'Balance adjustment',
+        date,
+        note: a.kind === 'investment' ? `${a.name} value updated` : `${a.name} balance updated`,
+        accountId,
+        adjustment: true,
+        createdAt: Date.now(),
+      },
+      ...data.transactions,
+    ],
+  };
+}
