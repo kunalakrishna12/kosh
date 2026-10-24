@@ -903,6 +903,17 @@ kbd {
   background: var(--company-soft);
   color: var(--company);
 }
+.tx-ico.gain {
+  background: var(--income-soft);
+  color: var(--income);
+}
+.tx-ico.loss {
+  background: var(--expense-soft);
+  color: var(--expense);
+}
+.tx.adjust .tx-t {
+  font-weight: 500;
+}
 .tx-ico.transfer {
   background: var(--gold-soft);
   color: var(--gold);

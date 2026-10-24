@@ -8,18 +8,22 @@ export interface MoneyFormat {
 
 export function moneyFormat(currency: string, locale: string): MoneyFormat {
   let full: Intl.NumberFormat;
+  let fullPaise: Intl.NumberFormat;
   let compact: Intl.NumberFormat;
   try {
-    full = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 2, minimumFractionDigits: 0 });
+    full = new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 });
+    fullPaise = new Intl.NumberFormat(locale, { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 });
     compact = new Intl.NumberFormat(locale, { style: 'currency', currency, notation: 'compact', maximumFractionDigits: 1 });
   } catch {
-    full = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+    full = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    fullPaise = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
     compact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact' });
   }
   const symbol = full.formatToParts(0).find((p) => p.type === 'currency')?.value ?? '';
   return {
     // `|| 0` turns -0 into 0, so a zero balance never shows as "-₹0".
-    full: (m) => full.format(m / 100 || 0),
+    // Whole amounts without decimals (₹4,290); anything with paise gets both digits (₹8,005.90).
+    full: (m) => (m % 100 === 0 ? full : fullPaise).format(m / 100 || 0),
     compact: (m) => compact.format(m / 100 || 0),
     symbol,
   };

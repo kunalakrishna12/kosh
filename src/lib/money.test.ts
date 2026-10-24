@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toBalance, toMinor } from './money';
+import { moneyFormat, toBalance, toMinor } from './money';
 
 describe('amounts and balances', () => {
   it('amounts must be positive', () => {
@@ -17,5 +17,15 @@ describe('amounts and balances', () => {
     expect(toBalance('-4,500.5')).toBe(-450_050);
     expect(toBalance('abc')).toBeNull();
     expect(toBalance('1.234')).toBeNull();
+  });
+});
+
+describe('formatting', () => {
+  it('shows paise with two digits, whole amounts without, and never -0', () => {
+    const f = moneyFormat('INR', 'en-IN');
+    expect(f.full(1_12_295_90)).toBe('₹1,12,295.90');
+    expect(f.full(4_290_00)).toBe('₹4,290');
+    expect(f.full(-258_38)).toBe('-₹258.38');
+    expect(f.full(-0)).toBe('₹0');
   });
 });
