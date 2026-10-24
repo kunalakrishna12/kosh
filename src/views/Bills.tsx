@@ -23,7 +23,7 @@ export function usePayBill() {
   return (b: Bill) =>
     nav.open({
       type: 'tx',
-      defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate, fx: b.fx },
+      defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate, fx: b.fx, accountId: b.accountId },
     });
 }
 
@@ -31,6 +31,7 @@ export function Bills() {
   const { data, money } = useVault();
   const nav = useNav();
   const pay = usePayBill();
+  const accountName = (id?: string) => (id ? data.accounts.find((a) => a.id === id)?.name : undefined);
   const [book, setBook] = useState<Book | 'all'>('all');
   const t = today();
 
@@ -140,6 +141,7 @@ export function Bills() {
                     <span className={state === 'overdue' ? 'down' : state === 'soon' ? '' : 'faint'} style={{ fontWeight: state === 'later' ? 400 : 600, color: state === 'soon' ? 'var(--warn)' : undefined }}>
                       {dueText(o.date, t)}
                     </span>
+                    {accountName(o.bill.accountId) && <> · {accountName(o.bill.accountId)}</>}
                     {o.bill.autopay && (
                       <>
                         · <Zap size={12} /> autopay
@@ -238,6 +240,7 @@ export function Bills() {
                 <div className="tx-t">{b.name}</div>
                 <div className="tx-s">
                   {b.vendor || BILL_KIND_LABEL[b.kind]} · {FREQUENCY_LABEL[b.frequency]}
+                  {accountName(b.accountId) && ` · ${accountName(b.accountId)}`}
                   {b.variable && ' · usage-based'}
                 </div>
               </div>

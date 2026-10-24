@@ -2207,6 +2207,14 @@ kbd {
   place-items: center;
   flex: none;
 }
+.acct-bills {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
 .acct-details {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

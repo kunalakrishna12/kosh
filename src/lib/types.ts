@@ -133,6 +133,8 @@ export interface Bill {
   taxRate?: number;
   /** Billed in another currency: `amount` is then the estimate in yours, updated after each payment. */
   fx?: Fx;
+  /** The card or account it's charged to. Pre-filled when you pay it. */
+  accountId?: string;
   autopay: boolean;
   active: boolean;
   notes: string;

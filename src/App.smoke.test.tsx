@@ -274,6 +274,9 @@ describe('app smoke test', () => {
     const fx = form().querySelector('.fx-box')!;
     await setValue(fx.querySelectorAll('input')[0], '84.12');
     await setValue(fx.querySelectorAll('input')[1], '4.13');
+    const paidFrom = [...form().querySelectorAll('.field')].find((f) => f.textContent?.startsWith('Paid from'))!.querySelector('select')!;
+    const card = [...paidFrom.options].find((o) => o.textContent?.includes('Company credit card'))!;
+    await setValue(paidFrom, card.value);
     expect(fx.querySelector('.fx-sum')?.textContent).toContain('₹1,751.88');
     await click(document.querySelector('button[form="bill-form"]'));
     const row = () => [...container.querySelectorAll('.tx')].find((r) => r.textContent?.includes('Claude Pro') && r.textContent?.includes('/mo'))!;
@@ -283,6 +286,8 @@ describe('app smoke test', () => {
     // Pay it: the statement says ₹1,759.
     await click(row().querySelector('[aria-label="Mark Claude Pro paid"]'));
     expect((document.querySelector('.amount-input') as HTMLInputElement).value).toBe('20');
+    const usedAccount = [...document.querySelectorAll('#tx-form .field')].find((f) => f.textContent?.startsWith('Paid from'))!.querySelector('select')!;
+    expect(usedAccount.value).toBe(card.value);
     const charged = [...document.querySelectorAll('#tx-form .field')].find((f) => f.textContent?.includes('Charged in INR'))!.querySelector('input');
     await setValue(charged, '1759');
     await click(document.querySelector('button[form="tx-form"]'));

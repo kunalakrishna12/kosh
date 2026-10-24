@@ -330,6 +330,9 @@ export function demoVault(): VaultData {
     t.toAccountId = toCompany ? cCurrent.id : pSavings.id;
   }
 
+  // Each bill is charged to the account its payments came from.
+  for (const b of v.bills) b.accountId = v.transactions.find((t) => t.billId === b.id && t.accountId)?.accountId;
+
   // Small office spends from petty cash.
   months.forEach((m) => {
     for (const day of [8, 22]) {

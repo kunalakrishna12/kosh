@@ -7,6 +7,7 @@ import { Empty, Field, Modal, Seg, useCopy, useToast } from '../components/ui';
 import { ACCOUNT_COLORS, activeAccounts, balanceHistory, defaultAccountId, investmentStats, investmentTotals, masked, monthlySipTotal, paySip, setAccountValue } from '../lib/accounts';
 import { accountBalances } from '../lib/analytics';
 import { addDays, dayLabel, today } from '../lib/dates';
+import { foreignFmt } from '../lib/fx';
 import { toBalance, toInput, toMinor } from '../lib/money';
 import { ACCOUNT_KIND_LABEL, type Account, type AccountKind, type Book, type Move, type Sip } from '../lib/types';
 import { useNav } from '../nav';
@@ -255,6 +256,23 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
             {money.full(balance)}
           </div>
           {a.kind === 'investment' ? <InvestedLine accountId={a.id} /> : <div className="stat-d">{ACCOUNT_KIND_LABEL[a.kind]}</div>}
+          {data.bills.filter((b) => b.active && b.accountId === a.id).length > 0 && (
+            <div className="acct-bills">
+              <div className="faint" style={{ fontSize: 12 }}>
+                Bills charged here
+              </div>
+              {data.bills
+                .filter((b) => b.active && b.accountId === a.id)
+                .map((b) => (
+                  <div key={b.id} className="row between" style={{ fontSize: 13 }}>
+                    <span className="tx-t">{b.name}</span>
+                    <span className="num faint">
+                      {b.fx ? foreignFmt(b.fx.currency, b.fx.amount) : money.full(b.amount)} · {dayLabel(b.nextDue)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
           {data.sips
             .filter((s) => s.toAccountId === a.id)
             .map((s) => (
@@ -427,6 +445,7 @@ export function AccountForm({ initial, defaults, onClose }: { initial?: Account;
       transactions: d.transactions.map((t) => (t.accountId === a.id ? { ...t, accountId: undefined } : t)),
       transfers: d.transfers.map((t) => ({ ...t, fromAccountId: t.fromAccountId === a.id ? undefined : t.fromAccountId, toAccountId: t.toAccountId === a.id ? undefined : t.toAccountId })),
       moves: d.moves.filter((m) => m.from !== a.id && m.to !== a.id),
+      bills: d.bills.map((b) => (b.accountId === a.id ? { ...b, accountId: undefined } : b)),
     }));
     toast('Account deleted · its entries were kept');
     onClose();

@@ -948,6 +948,9 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
   const [projectId, setProjectId] = useState(initial?.projectId ?? '');
   const [taxRate, setTaxRate] = useState(initial?.taxRate ?? 0);
   const [autopay, setAutopay] = useState(initial?.autopay ?? false);
+  const [paidFrom, setPaidFrom] = useState(initial?.accountId ?? '');
+  // A bill's card or account belongs to the same book as the bill.
+  const paidFromId = activeAccounts(data, book).some((a) => a.id === paidFrom) ? paidFrom : '';
   const [active, setActive] = useState(initial?.active ?? true);
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [error, setError] = useState('');
@@ -978,6 +981,7 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
       ...(book === 'company' && projectId ? { projectId } : {}),
       ...(taxRate ? { taxRate } : {}),
       ...(fx ? { fx } : {}),
+      ...(paidFromId ? { accountId: paidFromId } : {}),
       autopay,
       active,
       notes,
@@ -1096,6 +1100,16 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
         ) : (
           <div />
         )}
+        <AccountSelect
+          book={book}
+          value={paidFromId}
+          onChange={(id) => {
+            setPaidFrom(id);
+            // Bills on a card are usually auto-charged.
+            if (data.accounts.find((a) => a.id === id)?.kind === 'card') setAutopay(true);
+          }}
+          label="Paid from (card or account)"
+        />
         {book === 'company' && data.projects.length > 0 && (
           <Field label="Charge to project" className="full">
             <select className="select" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
