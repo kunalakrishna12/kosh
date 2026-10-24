@@ -18,8 +18,9 @@ export function moneyFormat(currency: string, locale: string): MoneyFormat {
   }
   const symbol = full.formatToParts(0).find((p) => p.type === 'currency')?.value ?? '';
   return {
-    full: (m) => full.format(m / 100),
-    compact: (m) => compact.format(m / 100),
+    // `|| 0` turns -0 into 0, so a zero balance never shows as "-₹0".
+    full: (m) => full.format(m / 100 || 0),
+    compact: (m) => compact.format(m / 100 || 0),
     symbol,
   };
 }

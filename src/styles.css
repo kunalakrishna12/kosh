@@ -277,6 +277,8 @@ a {
 
 .main {
   overflow-y: auto;
+  /* A page should never scroll sideways; long content truncates instead. */
+  overflow-x: hidden;
   min-width: 0;
   position: relative;
 }
@@ -411,6 +413,8 @@ kbd {
 }
 .stack {
   display: grid;
+  /* minmax(0, 1fr), not the default auto: lets long one-line text truncate instead of widening the column. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .mt {
@@ -853,6 +857,7 @@ kbd {
 /* Lists / tables */
 .list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 .list-day {
   position: sticky;
@@ -1643,6 +1648,7 @@ kbd {
 }
 .inv-sum {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-content: start;
   padding: 16px;
@@ -1775,6 +1781,7 @@ kbd {
 /* Budgets */
 .budget-row {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 16px 20px;
   border-bottom: 1px solid var(--line);
@@ -2051,12 +2058,63 @@ kbd {
 }
 .acct-details {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   padding: 14px 16px;
   border-radius: var(--r);
   background: var(--bg-2);
   border: 1px solid var(--line);
   font-size: 13px;
+}
+.fund-table {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.fund-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 100px 64px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-align: right;
+}
+.fund-row:last-child {
+  border-bottom: 0;
+}
+button.fund-row:hover .fund-name span {
+  color: var(--gold);
+}
+.fund-head {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding-top: 0;
+}
+.fund-row > :first-child {
+  text-align: left;
+}
+.fund-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.fund-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.sip-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
 }
 .swatch-btn {
   width: 20px;
@@ -2292,6 +2350,13 @@ kbd {
     min-width: 0;
     flex: 1;
   }
+  .fund-row {
+    grid-template-columns: minmax(0, 1fr) 84px 56px;
+  }
+  .fund-row > :nth-child(2) {
+    display: none;
+  }
+
   .page {
     padding: 20px 16px 96px;
   }

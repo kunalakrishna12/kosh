@@ -29,7 +29,8 @@ export function Accounts() {
   const [showArchived, setShowArchived] = useState(false);
   const bal = useMemo(() => accountBalances(data), [data]);
 
-  const total = (book: Book) => activeAccounts(data, book).reduce((s, a) => s + (bal.byAccount.get(a.id) ?? 0), 0);
+  // Investments have their own section, so book totals here are bank, cash, card and wallet money only.
+  const total = (book: Book) => activeAccounts(data, book).filter((a) => a.kind !== 'investment').reduce((s, a) => s + (bal.byAccount.get(a.id) ?? 0), 0);
   const cashInHand = data.accounts.filter((a) => !a.archived && a.kind === 'cash').reduce((s, a) => s + (bal.byAccount.get(a.id) ?? 0), 0);
   const cardDue = data.accounts.filter((a) => !a.archived && a.kind === 'card').reduce((s, a) => s + Math.min(0, bal.byAccount.get(a.id) ?? 0), 0);
   const company = data.settings.companyName || 'Company';
@@ -58,11 +59,11 @@ export function Accounts() {
     <>
       <div className="grid g-4">
         <div className="card">
-          <div className="stat-l">Personal, all accounts</div>
+          <div className="stat-l">Personal, banks &amp; cash</div>
           <div className="stat-v num">{money.compact(total('personal'))}</div>
         </div>
         <div className="card">
-          <div className="stat-l">{company}, all accounts</div>
+          <div className="stat-l">{company}, banks &amp; cash</div>
           <div className="stat-v num">{money.compact(total('company'))}</div>
         </div>
         <div className="card">
@@ -77,6 +78,7 @@ export function Accounts() {
             <CreditCard size={14} /> Owed on cards
           </div>
           <div className={`stat-v num ${cardDue < 0 ? 'down' : ''}`}>{money.compact(-cardDue)}</div>
+          <div className="stat-d">{cardDue < 0 ? 'Pay before the due date to avoid interest.' : 'All cards are paid off.'}</div>
         </div>
       </div>
 
@@ -116,8 +118,8 @@ function BookSection({
 }) {
   const { data, money } = useVault();
   const nav = useNav();
-  const list = data.accounts.filter((a) => a.book === book && (showArchived || !a.archived));
-  const total = activeAccounts(data, book).reduce((s, a) => s + (byAccount.get(a.id) ?? 0), 0);
+  const list = data.accounts.filter((a) => a.book === book && a.kind !== 'investment' && (showArchived || !a.archived));
+  const total = activeAccounts(data, book).filter((a) => a.kind !== 'investment').reduce((s, a) => s + (byAccount.get(a.id) ?? 0), 0);
   return (
     <>
       <div className="row between mt-lg" style={{ marginBottom: 12 }}>
@@ -651,7 +653,7 @@ function InvestedLine({ accountId }: { accountId: string }) {
           {' '}
           · {s.gain > 0 ? '+' : '−'}
           {money.compact(Math.abs(s.gain))}
-          {s.returnPct !== null && ` (${s.gain > 0 ? '+' : ''}${(s.returnPct * 100).toFixed(1)}%)`}
+          {s.returnPct !== null && ` (${s.gain > 0 ? '+' : '−'}${Math.abs(s.returnPct * 100).toFixed(1)}%)`}
         </span>
       )}
     </div>
@@ -731,22 +733,31 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
                 {totals.gain > 0 ? '+' : totals.gain < 0 ? '−' : ''}
                 {money.full(Math.abs(totals.gain))}
               </div>
-              <div className="stat-d">{totals.returnPct === null ? 'Update the value to see returns' : `${(totals.returnPct * 100).toFixed(1)}% overall`}</div>
+              <div className="stat-d">{totals.returnPct === null ? 'Update the value to see returns' : `${totals.gain > 0 ? '+' : totals.gain < 0 ? '−' : ''}${Math.abs(totals.returnPct * 100).toFixed(1)}% overall`}</div>
             </div>
           </div>
-          <div className="stack mt" style={{ gap: 8 }}>
+          <div className="fund-table mt">
+            <div className="fund-row fund-head">
+              <span>Fund</span>
+              <span>Invested</span>
+              <span>Value</span>
+              <span>Return</span>
+            </div>
             {activeAccounts(data)
               .filter((a) => a.kind === 'investment')
               .map((a) => {
                 const s = investmentStats(data, a.id);
                 return (
-                  <button key={a.id} className="doc-line" style={{ padding: '6px 0' }} onClick={() => onOpen(a.id)}>
-                    <i className="swatch" style={{ background: a.color }} />
-                    <span className="tx-t" style={{ flex: 1, textAlign: 'left' }}>
-                      {a.name}
+                  <button key={a.id} className="fund-row" onClick={() => onOpen(a.id)} title={a.name}>
+                    <span className="fund-name">
+                      <i className="swatch" style={{ background: a.color }} />
+                      <span>{a.name}</span>
                     </span>
-                    <span className="num faint">{money.compact(s.invested)} in</span>
-                    <b className="num">{money.compact(s.value)}</b>
+                    <span className="num faint">{money.full(s.invested)}</span>
+                    <span className="num">{money.full(s.value)}</span>
+                    <span className={`num ${s.gain > 0 ? 'up' : s.gain < 0 ? 'down' : 'faint'}`}>
+                      {s.returnPct === null || s.gain === 0 ? '—' : `${s.gain > 0 ? '+' : '−'}${Math.abs(s.returnPct * 100).toFixed(1)}%`}
+                    </span>
                   </button>
                 );
               })}
@@ -766,13 +777,13 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
               const soon = s.active && s.nextDue <= addDays(t, 3);
               const from = data.accounts.find((a) => a.id === s.fromAccountId);
               return (
-                <div key={s.id} className="row" style={{ gap: 10, opacity: s.active ? 1 : 0.5 }}>
-                  <CalendarClock size={16} style={{ color: overdue ? 'var(--expense)' : soon ? 'var(--warn)' : 'var(--text-3)', flex: 'none' }} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="tx-t" style={{ fontSize: 13.5 }}>
-                      {s.name} · <span className="num">{money.full(s.amount)}</span>
+                <div key={s.id} className="sip-row" style={{ opacity: s.active ? 1 : 0.5 }}>
+                  <CalendarClock size={16} style={{ color: overdue ? 'var(--expense)' : soon ? 'var(--warn)' : 'var(--text-3)' }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="tx-t" style={{ fontSize: 13.5 }} title={s.name}>
+                      {s.name}
                     </div>
-                    <div className="faint" style={{ fontSize: 12 }}>
+                    <div className="tx-s" style={{ fontSize: 12 }}>
                       {!s.active ? 'Paused' : overdue ? <span className="down">Due {dayLabel(s.nextDue)}</span> : `Next ${dayLabel(s.nextDue)}`}
                       {from && ` · from ${from.name}`}
                       {s.autopay && (
@@ -783,14 +794,19 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
                       )}
                     </div>
                   </div>
-                  {s.active && (
-                    <button className={`btn sm ${soon ? 'primary' : ''}`} onClick={() => pay(s)} title="Record this instalment">
-                      <Check size={14} /> Done
+                  <b className="num" style={{ fontSize: 13.5 }}>
+                    {money.full(s.amount)}
+                  </b>
+                  <div className="row" style={{ gap: 2 }}>
+                    {s.active && (
+                      <button className={`btn sm ${soon ? 'primary' : ''}`} onClick={() => pay(s)} title="Record this instalment">
+                        <Check size={14} /> Done
+                      </button>
+                    )}
+                    <button className="icon-btn" onClick={() => nav.open({ type: 'sip', initial: s })} aria-label={`Edit ${s.name}`}>
+                      <Pencil size={15} />
                     </button>
-                  )}
-                  <button className="icon-btn" onClick={() => nav.open({ type: 'sip', initial: s })} aria-label={`Edit ${s.name}`}>
-                    <Pencil size={15} />
-                  </button>
+                  </div>
                 </div>
               );
             })}

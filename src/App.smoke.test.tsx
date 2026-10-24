@@ -190,10 +190,12 @@ describe('app smoke test', () => {
     await click(document.querySelector('.modal-f .btn.primary'));
     expect(document.querySelector('.modal')).toBeNull();
     expect(container.textContent).toContain('Test Small Cap Fund');
-    const row = [...container.querySelectorAll('.row')].find((r) => r.textContent?.startsWith('Test Small Cap Fund ·'))!;
+    const row = [...container.querySelectorAll('.sip-row')].find((r) => r.textContent?.includes('Test Small Cap Fund'))!;
     await click([...row.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Done')));
-    const card = [...container.querySelectorAll('.acct-card')].find((c) => c.textContent?.includes('Test Small Cap Fund'))!;
-    expect(card.querySelector('.stat-v')?.textContent).toBe('₹1,500');
+    const fund = [...container.querySelectorAll('.fund-row')].find((r) => r.textContent?.includes('Test Small Cap Fund'))!;
+    expect(fund.querySelectorAll('.num')[1].textContent).toBe('₹1,500');
+    // Funds are listed once, under Investments, not again among bank accounts.
+    expect([...container.querySelectorAll('.acct-card')].some((c) => c.textContent?.includes('Test Small Cap Fund'))).toBe(false);
   });
 
   it('logged no errors', () => {
