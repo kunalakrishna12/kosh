@@ -264,14 +264,14 @@ export function demoVault(): VaultData {
     doc('Office lease — WeWork Krishe.pdf', 'contracts', 'company', { expiresOn: addDays(end, 150) }),
     doc('Atlas Bank — Master Services Agreement.pdf', 'contracts', 'company', { tags: ['client'] }),
     doc('Business insurance policy.pdf', 'insurance', 'company', { expiresOn: addDays(end, 210) }),
-    doc('HDFC current account — September.pdf', 'bank', 'company'),
+    doc('HDFC current account — September.pdf', 'bank', 'company', { password: '50200071234567' }),
     doc('MacBook Pro invoice.pdf', 'receipts', 'company', { tags: ['equipment'] }),
     doc('Passport.pdf', 'identity', 'personal', { expiresOn: addDays(end, 38), notes: 'Renew at least 6 months before travel.' }),
     doc('PAN card.pdf', 'identity', 'personal'),
-    doc('Aadhaar.pdf', 'identity', 'personal'),
+    doc('e-Aadhaar.pdf', 'identity', 'personal', { password: 'AARA1995' }),
     doc('Health insurance — Star Health.pdf', 'insurance', 'personal', { expiresOn: addDays(end, 19) }),
     doc('Car RC and insurance.pdf', 'property', 'personal', { expiresOn: addDays(end, 95) }),
-    doc('ITR-V FY 2025-26.pdf', 'tax', 'personal', { tags: ['ITR'] }),
+    doc('ITR-V FY 2025-26.pdf', 'tax', 'personal', { tags: ['ITR'], password: 'abcpk1234d14031995' }),
   ].map((d) => ({ ...d, size: 40_000 + Math.floor(r() * 900_000) }));
 
   v.projects = projects;

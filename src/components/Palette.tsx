@@ -71,7 +71,10 @@ export function Palette({ onClose }: { onClose: () => void }) {
     const docs: Item[] = data.docs
       .filter((d) => `${d.name} ${d.tags.join(' ')}`.toLowerCase().includes(term))
       .slice(0, 4)
-      .map((d) => ({ id: `doc-${d.id}`, group: 'Documents', label: d.name, icon: FolderLock, run: act(() => nav.go('documents')) }));
+      .flatMap((d) => [
+        { id: `doc-${d.id}`, group: 'Documents', label: d.name, icon: FolderLock, run: act(() => nav.go('documents')) },
+        ...(d.password ? [{ id: `docpw-${d.id}`, group: 'Documents', label: `Copy password · ${d.name}`, icon: KeyRound, run: act(() => copy(d.password!, 'File password', true)) }] : []),
+      ]);
     const invoices: Item[] = data.invoices
       .filter((i) => `${i.number} ${i.clientName}`.toLowerCase().includes(term))
       .slice(0, 4)

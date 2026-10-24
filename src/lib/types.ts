@@ -303,6 +303,8 @@ export interface Doc {
   expiresOn?: string;
   /** A transaction, bill or invoice this file belongs to. */
   linkId?: string;
+  /** Password needed to open the file itself, like a protected bank statement or e-Aadhaar PDF. */
+  password?: string;
   createdAt: number;
 }
 

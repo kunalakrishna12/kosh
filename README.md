@@ -84,6 +84,7 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - Store incorporation papers, GST certificates, contracts, bank statements, receipts, IDs and insurance policies.
 - **Every file is encrypted separately** with AES-256-GCM before it's saved, and included in your encrypted backup.
 - Folders, tags, search, in-app preview for PDFs and images, and **expiry reminders** for passports, policies and leases.
+- **Save a file's own password** (protected bank statements, e-Aadhaar, ITR-V, Form 16) with it, shown above the preview with one-click copy.
 - Link files to transactions, bills and invoices.
 
 ### 🔐 Password vault

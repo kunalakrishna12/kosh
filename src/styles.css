@@ -2024,6 +2024,38 @@ kbd {
   font-size: 13px;
   min-width: 0;
 }
+.masked {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
+.doc-pw {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--r);
+  background: var(--gold-soft);
+  color: var(--text);
+  font-size: 13px;
+}
+.doc-pw > svg {
+  color: var(--gold);
+}
+.doc-pw code {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  letter-spacing: 0.04em;
+}
+.doc-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--gold);
+}
 .doc-preview {
   border-radius: var(--r);
   overflow: hidden;

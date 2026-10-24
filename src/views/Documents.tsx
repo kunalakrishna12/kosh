@@ -1,11 +1,42 @@
-import { CalendarClock, Download, File, FileImage, FileSpreadsheet, FileText, FolderLock, Lock, Pencil, Search, Trash2, Upload } from 'lucide-react';
+import { CalendarClock, Copy, Download, Eye, EyeOff, File, FileImage, FileSpreadsheet, FileText, FolderLock, KeyRound, Lock, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { BookLabel } from '../components/forms';
-import { download, Empty, Field, Modal, Seg, useToast } from '../components/ui';
+import { download, Empty, Field, Modal, Seg, useCopy, useToast } from '../components/ui';
 import { addDays, dayLabel, parseDate, today } from '../lib/dates';
 import { DOC_FOLDER_LABEL, type Book, type Doc, type DocFolder } from '../lib/types';
 import { useNav } from '../nav';
 import { MAX_DOC_BYTES, useVault } from '../store';
+
+/**
+ * A masked text field for a file's password. Deliberately not type="password": Safari would offer to
+ * generate or save a login there, which makes no sense for a PDF's password.
+ */
+function FilePasswordInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="input-wrap">
+      <input
+        className={`input mono ${show ? '' : 'masked'}`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        data-1p-ignore
+        data-lpignore="true"
+        aria-label="File password"
+      />
+      <div className="addons">
+        <button type="button" className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setShow(!show)} aria-label={show ? 'Hide file password' : 'Show file password'}>
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const PASSWORD_HINT = 'Optional. For protected PDFs: e-Aadhaar is the first 4 letters of your name in capitals + birth year, ITR-V is PAN in lowercase + date of birth (DDMMYYYY), bank statements usually use your customer ID or date of birth.';
 
 export function fileSize(n: number) {
   return n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -183,6 +214,11 @@ export function Documents() {
               <span className="doc-ext">{(d.name.split('.').pop() ?? '').slice(0, 4)}</span>
             </div>
             <div className="doc-name">{d.name}</div>
+            {d.password && (
+              <span className="doc-lock" title="Password saved">
+                <KeyRound size={12} /> Password saved
+              </span>
+            )}
             <div className="doc-meta">
               {DOC_FOLDER_LABEL[d.folder]} · {fileSize(d.size)}
             </div>
@@ -210,6 +246,7 @@ export function UploadForm({ files, defaults, onClose }: { files: File[]; defaul
   const [expiresOn, setExpiresOn] = useState('');
   const [tags, setTags] = useState('');
   const [notes, setNotes] = useState('');
+  const [filePassword, setFilePassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const tooBig = files.filter((f) => f.size > MAX_DOC_BYTES);
@@ -225,6 +262,7 @@ export function UploadForm({ files, defaults, onClose }: { files: File[]; defaul
           folder,
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
           notes,
+          ...(filePassword ? { password: filePassword } : {}),
           ...(expiresOn ? { expiresOn } : {}),
           ...(defaults?.linkId ? { linkId: defaults.linkId } : {}),
         });
@@ -295,6 +333,9 @@ export function UploadForm({ files, defaults, onClose }: { files: File[]; defaul
           <Field label="Tags" className="full">
             <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="GST, FY26, client" />
           </Field>
+          <Field label={files.length > 1 ? 'File password (applies to all these files)' : 'File password'} hint={PASSWORD_HINT} className="full">
+            <FilePasswordInput value={filePassword} onChange={setFilePassword} />
+          </Field>
           <Field label="Notes" className="full">
             <input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Policy number, where the original is kept…" />
           </Field>
@@ -315,7 +356,9 @@ export function DocPreview({ doc, onClose }: { doc: Doc; onClose: () => void }) 
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [sure, setSure] = useState(false);
-  const [meta, setMeta] = useState({ name: doc.name, folder: doc.folder, expiresOn: doc.expiresOn ?? '', notes: doc.notes, tags: doc.tags.join(', ') });
+  const [meta, setMeta] = useState({ name: doc.name, folder: doc.folder, expiresOn: doc.expiresOn ?? '', notes: doc.notes, tags: doc.tags.join(', '), password: doc.password ?? '' });
+  const copy = useCopy();
+  const [showPw, setShowPw] = useState(false);
 
   useEffect(() => {
     let u: string | null = null;
@@ -341,7 +384,15 @@ export function DocPreview({ doc, onClose }: { doc: Doc; onClose: () => void }) 
       ...d,
       docs: d.docs.map((x) =>
         x.id === doc.id
-          ? { ...x, name: meta.name.trim() || x.name, folder: meta.folder, expiresOn: meta.expiresOn || undefined, notes: meta.notes, tags: meta.tags.split(',').map((t) => t.trim()).filter(Boolean) }
+          ? {
+              ...x,
+              name: meta.name.trim() || x.name,
+              folder: meta.folder,
+              expiresOn: meta.expiresOn || undefined,
+              notes: meta.notes,
+              tags: meta.tags.split(',').map((t) => t.trim()).filter(Boolean),
+              password: meta.password || undefined,
+            }
           : x,
       ),
     }));
@@ -412,6 +463,9 @@ export function DocPreview({ doc, onClose }: { doc: Doc; onClose: () => void }) 
           <Field label="Tags" className="full">
             <input className="input" value={meta.tags} onChange={(e) => setMeta({ ...meta, tags: e.target.value })} />
           </Field>
+          <Field label="File password" hint="Leave empty if the file isn't protected." className="full">
+            <FilePasswordInput value={meta.password} onChange={(password) => setMeta({ ...meta, password })} />
+          </Field>
           <Field label="Notes" className="full">
             <input className="input" value={meta.notes} onChange={(e) => setMeta({ ...meta, notes: e.target.value })} />
           </Field>
@@ -423,6 +477,20 @@ export function DocPreview({ doc, onClose }: { doc: Doc; onClose: () => void }) 
         </div>
       )}
       {doc.notes && !editing && <p className="muted" style={{ marginTop: 0 }}>{doc.notes}</p>}
+      {doc.password && !editing && (
+        <div className="doc-pw">
+          <KeyRound size={15} />
+          <span>File password</span>
+          <code className="mono">{showPw ? doc.password : '•'.repeat(Math.min(12, doc.password.length))}</code>
+          <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Hide file password' : 'Show file password'}>
+            {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+          <button className="btn sm" onClick={() => copy(doc.password!, 'File password', true)}>
+            <Copy size={13} /> Copy
+          </button>
+          <span className="faint" style={{ fontSize: 12 }}>Paste it if the file asks below.</span>
+        </div>
+      )}
       <div className="doc-preview">
         {error ? (
           <Empty icon={<File size={22} />} title="Couldn't open this file">

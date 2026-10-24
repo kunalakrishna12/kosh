@@ -228,6 +228,35 @@ describe('app smoke test', () => {
     await closeModal();
   });
 
+  it('shows and saves the file password of a document', async () => {
+    await click(navButton('Documents'));
+    const card = (name: string) => [...container.querySelectorAll('.doc-card')].find((c) => c.textContent?.includes(name))!;
+    expect(card('e-Aadhaar').textContent).toContain('Password saved');
+    await click(card('e-Aadhaar'));
+    await act(async () => new Promise((r) => setTimeout(r, 10)));
+    const bar = document.querySelector('.doc-pw')!;
+    expect(bar.querySelector('code')?.textContent).not.toContain('AARA1995');
+    await click(bar.querySelector('[aria-label="Show file password"]'));
+    expect(bar.querySelector('code')?.textContent).toBe('AARA1995');
+    await closeModal();
+
+    // Add a password to a file that didn't have one.
+    await click(card('PAN card'));
+    await act(async () => new Promise((r) => setTimeout(r, 10)));
+    expect(document.querySelector('.doc-pw')).toBeNull();
+    await click([...document.querySelectorAll('.modal-f .btn')].find((b) => b.textContent?.includes('Details')));
+    const input = document.querySelector('.modal input[aria-label="File password"]') as HTMLInputElement;
+    expect(input.type).toBe('text'); // not a password field, so Safari won't offer to generate one
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'PAN-1995');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click([...document.querySelectorAll('.modal .btn')].find((b) => b.textContent?.includes('Save details')));
+    expect(document.querySelector('.doc-pw')).toBeTruthy();
+    await closeModal();
+    expect(card('PAN card').textContent).toContain('Password saved');
+  });
+
   it('logged no errors', () => {
     expect(errors).toEqual([]);
   });
