@@ -645,6 +645,13 @@ export function MoveForm({ initial, defaults, onClose }: { initial?: Move; defau
 
 /* ───────── Investments & SIPs ───────── */
 
+/** "+5.17%" / "−5.17%": two decimals so similar returns stay distinguishable. */
+export function pct(gain: number, invested: number): string {
+  if (!invested || !gain) return '0.00%';
+  return `${gain > 0 ? '+' : '−'}${Math.abs((gain / invested) * 100).toFixed(2)}%`;
+}
+
+
 function InvestedLine({ accountId }: { accountId: string }) {
   const { data, money } = useVault();
   const s = investmentStats(data, accountId);
@@ -656,7 +663,7 @@ function InvestedLine({ accountId }: { accountId: string }) {
           {' '}
           · {s.gain > 0 ? '+' : '−'}
           {money.compact(Math.abs(s.gain))}
-          {s.returnPct !== null && ` (${s.gain > 0 ? '+' : '−'}${Math.abs(s.returnPct * 100).toFixed(1)}%)`}
+          {s.returnPct !== null && ` (${pct(s.gain, s.invested)})`}
         </span>
       )}
     </div>
@@ -737,7 +744,7 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
                 {totals.gain > 0 ? '+' : totals.gain < 0 ? '−' : ''}
                 {money.full(Math.abs(totals.gain))}
               </div>
-              <div className="stat-d">{totals.returnPct === null ? 'Update the value to see returns' : `${totals.gain > 0 ? '+' : totals.gain < 0 ? '−' : ''}${Math.abs(totals.returnPct * 100).toFixed(1)}% overall`}</div>
+              <div className="stat-d">{totals.returnPct === null ? 'Update the value to see returns' : `${pct(totals.gain, totals.invested)} overall`}</div>
             </div>
           </div>
           <div className="fund-table mt">
@@ -760,8 +767,18 @@ function Investments({ onOpen }: { onOpen: (id: string) => void }) {
                     </button>
                     <span className="num faint">{money.full(s.invested)}</span>
                     <span className="num">{money.full(s.value)}</span>
-                    <span className={`num ${s.gain > 0 ? 'up' : s.gain < 0 ? 'down' : 'faint'}`}>
-                      {s.returnPct === null || s.gain === 0 ? '—' : `${s.gain > 0 ? '+' : '−'}${Math.abs(s.returnPct * 100).toFixed(1)}%`}
+                    <span className={`fund-return num ${s.gain > 0 ? 'up' : s.gain < 0 ? 'down' : 'faint'}`}>
+                      {s.returnPct === null || s.gain === 0 ? (
+                        '—'
+                      ) : (
+                        <>
+                          {pct(s.gain, s.invested)}
+                          <small>
+                            {s.gain > 0 ? '+' : '−'}
+                            {money.full(Math.abs(s.gain))}
+                          </small>
+                        </>
+                      )}
                     </span>
                     <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setValuing(a)} aria-label={`Update current value of ${a.name}`} title="Update current value">
                       <Pencil size={14} />

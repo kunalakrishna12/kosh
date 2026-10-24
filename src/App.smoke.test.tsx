@@ -212,7 +212,7 @@ describe('app smoke test', () => {
     const cells = row().querySelectorAll('.num');
     expect(cells[0].textContent).toBe('₹1,500');
     expect(cells[1].textContent).toBe('₹1,650');
-    expect(cells[2].textContent).toBe('+10.0%');
+    expect(cells[2].textContent).toBe('+10.00%+₹150');
   });
 
   it('logged no errors', () => {

@@ -2083,7 +2083,7 @@ kbd {
 }
 .fund-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 100px 100px 64px 28px;
+  grid-template-columns: minmax(0, 1fr) 100px 100px 92px 28px;
   gap: 12px;
   align-items: center;
   padding: 9px 0;
@@ -2096,6 +2096,14 @@ kbd {
 }
 .fund-row:last-child {
   border-bottom: 0;
+}
+.fund-return {
+  display: grid;
+  line-height: 1.25;
+}
+.fund-return small {
+  font-size: 11.5px;
+  opacity: 0.8;
 }
 button.fund-name:hover span {
   color: var(--gold);
@@ -2368,7 +2376,7 @@ button.fund-name:hover span {
     flex: 1;
   }
   .fund-row {
-    grid-template-columns: minmax(0, 1fr) 84px 56px 28px;
+    grid-template-columns: minmax(0, 1fr) 84px 80px 28px;
   }
   .fund-row > :nth-child(2) {
     display: none;

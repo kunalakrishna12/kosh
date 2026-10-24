@@ -120,3 +120,14 @@ describe('setting an account to its real value', () => {
     expect(setAccountValue(v, 'fund', 21_000_00)).toBe(v);
   });
 });
+
+describe('return percentage', () => {
+  it('matches (value − invested) / invested for the funds in the screenshot', async () => {
+    const { pct } = await import('../views/Accounts');
+    expect(pct(13_749_83 - 14_500_00, 14_500_00)).toBe('−5.17%');
+    expect(pct(4_741_62 - 5_000_00, 5_000_00)).toBe('−5.17%');
+    expect(pct(18_491_45 - 19_500_00, 19_500_00)).toBe('−5.17%');
+    expect(pct(150_00, 1_500_00)).toBe('+10.00%');
+    expect(pct(0, 1_000)).toBe('0.00%');
+  });
+});
