@@ -47,6 +47,7 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 ### 🧾 Bills: never miss one, never overpay
 - Recurring bills for **cloud, APIs, SaaS, rent, utilities, insurance, EMIs and CA fees**: weekly, monthly, quarterly or yearly.
 - **Usage-based bills** (AWS, OpenAI, Twilio…) take the real amount when paid, and Kosh warns when one jumps.
+- **Bills in dollars, euros and more.** Enter $20, the rate and your card's forex fee (3.5% + GST by default). Kosh estimates the rupee cost, learns the real rate from each statement charge, and only flags a price rise when the dollar price changes.
 - **Overdue and due-this-week** alerts, plus your monthly and yearly committed spend by type.
 - **One-click "Pay"** records the payment and rolls the bill to its next due date.
 

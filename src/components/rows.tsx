@@ -1,4 +1,5 @@
 import { ArrowLeftRight, Briefcase, Repeat, Scale, TrendingDown, TrendingUp, User } from 'lucide-react';
+import { foreignFmt } from '../lib/fx';
 import { TO_COMPANY, TRANSFER_LABEL, type Move, type Transaction, type Transfer } from '../lib/types';
 import { useNav } from '../nav';
 import { useVault } from '../store';
@@ -102,6 +103,13 @@ export function ActivityRow({ a }: { a: Activity }) {
         <div className="tx-t">{t.note || t.category}</div>
         <div className="tx-s">
           {t.category}
+          {t.fx && (
+            <>
+              <span>·</span>
+              {foreignFmt(t.fx.currency, t.fx.amount)} @ {money.symbol}
+              {(t.amount / t.fx.amount).toFixed(2)}
+            </>
+          )}
           {acct(t.accountId) && (
             <>
               <span>·</span>

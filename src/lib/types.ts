@@ -7,6 +7,17 @@ export type TxKind = 'income' | 'expense';
  * Money is always stored as an integer number of minor units (paise, cents)
  * so that sums never drift through floating point.
  */
+/** An amount charged in another currency, e.g. a $20 subscription paid from an Indian card. */
+export interface Fx {
+  currency: string;
+  /** In that currency's minor units (cents). */
+  amount: number;
+  /** Market rate: your currency per 1 unit (₹84.12 per $1). */
+  rate: number;
+  /** The card's forex fee in percent, GST included (3.5% + 18% GST = 4.13%). */
+  markup: number;
+}
+
 export interface Transaction {
   id: string;
   book: Book;
@@ -33,6 +44,8 @@ export interface Transaction {
   accountId?: string;
   /** A correction from "Update balance". Moves cash but is not income or expense. */
   adjustment?: boolean;
+  /** Set when this was charged in another currency; `amount` is what it cost in yours. */
+  fx?: Fx;
   createdAt: number;
 }
 
@@ -118,6 +131,8 @@ export interface Bill {
   category: string;
   projectId?: string;
   taxRate?: number;
+  /** Billed in another currency: `amount` is then the estimate in yours, updated after each payment. */
+  fx?: Fx;
   autopay: boolean;
   active: boolean;
   notes: string;

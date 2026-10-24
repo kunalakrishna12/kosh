@@ -257,6 +257,38 @@ describe('app smoke test', () => {
     expect(card('PAN card').textContent).toContain('Password saved');
   });
 
+  it('bills in dollars: estimate, pay with the real charge, learn the rate', async () => {
+    const setValue = async (el: Element | null, v: string) =>
+      act(async () => {
+        const input = el as HTMLInputElement | HTMLSelectElement;
+        const proto = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(input, v);
+        input.dispatchEvent(new Event(input instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+      });
+    await click(navButton('Bills'));
+    await click(container.querySelector('.top .btn.primary'));
+    const form = () => document.querySelector('#bill-form')!;
+    await setValue(form().querySelector('input'), 'Claude Pro');
+    await setValue(form().querySelector('.cur-select'), 'USD');
+    await setValue(form().querySelector('.input-wrap .input.num'), '20');
+    const fx = form().querySelector('.fx-box')!;
+    await setValue(fx.querySelectorAll('input')[0], '84.12');
+    await setValue(fx.querySelectorAll('input')[1], '4.13');
+    expect(fx.querySelector('.fx-sum')?.textContent).toContain('₹1,751.88');
+    await click(document.querySelector('button[form="bill-form"]'));
+    const row = () => [...container.querySelectorAll('.tx')].find((r) => r.textContent?.includes('Claude Pro') && r.textContent?.includes('/mo'))!;
+    expect(row().textContent).toContain('$20.00');
+    expect(row().textContent).toContain('≈ ₹1,751.88');
+
+    // Pay it: the statement says ₹1,759.
+    await click(row().querySelector('[aria-label="Mark Claude Pro paid"]'));
+    expect((document.querySelector('.amount-input') as HTMLInputElement).value).toBe('20');
+    const charged = [...document.querySelectorAll('#tx-form .field')].find((f) => f.textContent?.includes('Charged in INR'))!.querySelector('input');
+    await setValue(charged, '1759');
+    await click(document.querySelector('button[form="tx-form"]'));
+    expect(row().textContent).toContain('≈ ₹1,759');
+  });
+
   it('logged no errors', () => {
     expect(errors).toEqual([]);
   });

@@ -22,7 +22,7 @@ export const NAV_ITEMS: { view: View; label: string; icon: LucideIcon; group: (t
   { view: 'settings', label: 'Settings', icon: Settings, group: 'App' },
 ];
 
-export type TxDefaults = Partial<Pick<Transaction, 'book' | 'kind' | 'projectId' | 'billId' | 'amount' | 'category' | 'note' | 'taxRate' | 'accountId'>>;
+export type TxDefaults = Partial<Pick<Transaction, 'book' | 'kind' | 'projectId' | 'billId' | 'amount' | 'category' | 'note' | 'taxRate' | 'accountId' | 'fx'>>;
 
 export type Dialog =
   | { type: 'tx'; initial?: Transaction; defaults?: TxDefaults }

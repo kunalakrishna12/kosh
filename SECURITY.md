@@ -18,7 +18,8 @@ We aim to reply within 72 hours.
 | **Storage** | IndexedDB in your browser holds only the sealed vault and sealed documents. Nothing readable is written to disk. |
 | **Documents** | Each file is encrypted separately with the vault key (fresh IV, document id bound as associated data, so files can't be swapped). Changing the master password re-encrypts every file. |
 | **Statement import** | CSV files are parsed in the browser. Nothing is uploaded. |
-| **Network** | None. The production build ships a Content-Security-Policy that blocks every outside host except the opt-in breach check. |
+| **Network** | None by default. The production build's Content-Security-Policy blocks every outside host except the two opt-in lookups below. |
+| **Exchange rates** | Optional, only when you press “Today's rate”: asks frankfurter.app (European Central Bank data) for one currency pair, e.g. USD→INR. Nothing else is sent. |
 | **Breach check** | Optional and user-triggered. Uses Have I Been Pwned's k-anonymity range API: only the first 5 hex characters of a SHA-1 hash are sent, with response padding. |
 | **Clipboard** | Copied passwords are cleared after 20 seconds if the clipboard still holds them. |
 

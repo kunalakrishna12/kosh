@@ -5,6 +5,7 @@ import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
 import { activeAccounts, defaultAccountId, masked } from '../lib/accounts';
 import { advance } from '../lib/bills';
+import { DEFAULT_MARKUP, fetchRate, foreignFmt, FOREIGN_CURRENCIES, fxToBase, impliedRate, lastKnownRate, parseMarkup, parseRate, type FxDraft } from '../lib/fx';
 import { entryImpact } from '../lib/budgets';
 import { taxPart } from '../lib/reports';
 import { useNav, type TxDefaults } from '../nav';
@@ -37,8 +38,9 @@ const uid = () => crypto.randomUUID();
 function AmountInput({ value, onChange, symbol }: { value: string; onChange: (v: string) => void; symbol: string }) {
   return (
     <div className="amount-wrap">
-      <span className="cur">{symbol}</span>
+      {symbol && <span className="cur">{symbol}</span>}
       <input
+        style={symbol ? undefined : { paddingLeft: 16 }}
         className="input amount-input"
         inputMode="decimal"
         placeholder="0"
@@ -68,6 +70,73 @@ export const BookLabel = ({ book }: { book: Book }) => (
   </>
 );
 
+
+/* ───────── Foreign currency ───────── */
+
+export function CurrencySelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const { data } = useVault();
+  const base = data.settings.currency;
+  return (
+    <select className="select cur-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Currency">
+      <option value={base}>{base}</option>
+      {FOREIGN_CURRENCIES.filter((c) => c !== base).map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** Rate and card fee for a foreign amount, with the result in your currency. */
+export function FxRateFields({ currency, foreignMinor, draft, setDraft, resultLabel }: { currency: string; foreignMinor: number | null; draft: FxDraft; setDraft: (d: FxDraft) => void; resultLabel: string }) {
+  const { data, money } = useVault();
+  const base = data.settings.currency;
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  const rate = parseRate(draft.rate);
+  const markup = parseMarkup(draft.markup);
+  const getRate = async () => {
+    setBusy(true);
+    setMsg('');
+    try {
+      setDraft({ ...draft, rate: String(Math.round((await fetchRate(currency, base)) * 10_000) / 10_000) });
+    } catch {
+      setMsg("Couldn't reach the rate service. Type the rate instead, e.g. from your bank app.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="fx-box full">
+      <div className="form-grid">
+        <Field label={`Rate (${money.symbol} per 1 ${currency})`}>
+          <div className="input-wrap">
+            <input className="input num" inputMode="decimal" value={draft.rate} onChange={(e) => setDraft({ ...draft, rate: e.target.value.replace(/[^\d.]/g, '') })} placeholder="84.12" />
+            <div className="addons">
+              <button type="button" className="btn sm" onClick={getRate} disabled={busy} title="Fetch today's reference rate (sends only the two currency codes)">
+                {busy ? '…' : "Today's rate"}
+              </button>
+            </div>
+          </div>
+        </Field>
+        <Field label="Card forex fee %" hint="Most cards: 3.5% + 18% GST = 4.13%. Use 0 for zero-markup cards (Niyo, Scapia…).">
+          <input className="input num" inputMode="decimal" value={draft.markup} onChange={(e) => setDraft({ ...draft, markup: e.target.value.replace(/[^\d.]/g, '') })} />
+        </Field>
+      </div>
+      {msg && <div className="error-text" style={{ marginTop: 8 }}>{msg}</div>}
+      {foreignMinor && rate && markup !== null ? (
+        <div className="fx-sum">
+          {foreignFmt(currency, foreignMinor)} × {money.symbol}
+          {rate} {markup ? `+ ${markup}% fee` : ''} = <b className="num">{money.full(fxToBase({ amount: foreignMinor, rate, markup }))}</b> {resultLabel}
+        </div>
+      ) : (
+        <div className="fx-sum faint">Enter the amount and rate to see what it costs in {base}.</div>
+      )}
+    </div>
+  );
+}
+
 /* ───────── Transaction ───────── */
 
 export function TxForm({
@@ -83,7 +152,20 @@ export function TxForm({
   const toast = useToast();
   const [book, setBook] = useState<Book>(initial?.book ?? defaults?.book ?? 'personal');
   const [kind, setKind] = useState<TxKind>(initial?.kind ?? defaults?.kind ?? 'expense');
-  const [amount, setAmount] = useState(initial ? toInput(initial.amount) : defaults?.amount ? toInput(defaults.amount) : '');
+  const base = data.settings.currency;
+  const startFx = initial?.fx ?? defaults?.fx;
+  // `amount` is in `currency`; for a foreign currency, the cost in yours comes from rate + fee, or what the statement says.
+  const [currency, setCurrency] = useState(startFx?.currency ?? base);
+  const [amount, setAmount] = useState(startFx ? toInput(startFx.amount) : initial ? toInput(initial.amount) : defaults?.amount ? toInput(defaults.amount) : '');
+  const [fxDraft, setFxDraft] = useState<FxDraft>({ rate: startFx ? String(startFx.rate) : String(lastKnownRate(data, 'USD') ?? ''), markup: String(startFx?.markup ?? DEFAULT_MARKUP) });
+  const [charged, setCharged] = useState(initial?.fx ? toInput(initial.amount) : '');
+  const foreign = currency !== base;
+  const foreignMinor = foreign ? toMinor(amount) : null;
+  const fxRate = parseRate(fxDraft.rate);
+  const fxMarkup = parseMarkup(fxDraft.markup);
+  const estimate = foreignMinor && fxRate && fxMarkup !== null ? fxToBase({ amount: foreignMinor, rate: fxRate, markup: fxMarkup }) : null;
+  /** The entry's amount in your currency. */
+  const baseAmount = foreign ? (charged.trim() ? toMinor(charged) : estimate) : toMinor(amount);
   const [category, setCategory] = useState(initial?.category ?? defaults?.category ?? '');
   const [date, setDate] = useState(initial?.date ?? today());
   const [note, setNote] = useState(initial?.note ?? defaults?.note ?? '');
@@ -92,7 +174,7 @@ export function TxForm({
 
   // Live budget check for expenses: warns before the entry is saved, never blocks a real record.
   const budgetNote = useMemo(() => {
-    const minor = toMinor(amount);
+    const minor = baseAmount;
     if (kind !== 'expense' || !minor) return null;
     const imp = entryImpact(data, { book, category: category.trim() || 'Other', amount: minor, date }, initial);
     const lines: { level: 'ok' | 'near' | 'over'; text: string }[] = [];
@@ -112,7 +194,7 @@ export function TxForm({
     const rank = { ok: 0, near: 1, over: 2 };
     const level = lines.reduce((a, l) => (rank[l.level] > rank[a] ? l.level : a), 'ok' as 'ok' | 'near' | 'over');
     return { level, text: lines.map((l) => l.text).join(' ') };
-  }, [data, kind, amount, book, category, date, initial, money]);
+  }, [data, kind, baseAmount, book, category, date, initial, money]);
   const attachments = initial ? data.docs.filter((d) => d.linkId === initial.id) : [];
   const billId = initial?.billId ?? defaults?.billId;
   const bill = billId ? data.bills.find((b) => b.id === billId) : undefined;
@@ -132,8 +214,10 @@ export function TxForm({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const minor = toMinor(amount);
+    const minor = baseAmount;
+    if (foreign && (!foreignMinor || !fxRate || fxMarkup === null)) return setError(`Enter the ${currency} amount and the exchange rate.`);
     if (!minor) return setError('Enter an amount greater than zero.');
+    const txFx = foreign ? { currency, amount: foreignMinor!, rate: fxRate!, markup: fxMarkup! } : undefined;
     const tx: Transaction = {
       id: initial?.id ?? uid(),
       createdAt: initial?.createdAt ?? Date.now(),
@@ -149,6 +233,7 @@ export function TxForm({
       ...(taxRate ? { taxRate } : {}),
       ...(accountId ? { accountId } : {}),
       ...(initial?.adjustment ? { adjustment: true } : {}),
+      ...(txFx ? { fx: txFx } : {}),
     };
     update((d) => ({
       ...d,
@@ -156,7 +241,16 @@ export function TxForm({
       // Paying a bill moves it on to its next due date, and remembers the latest amount.
       bills:
         !initial && billId
-          ? d.bills.map((b) => (b.id === billId ? { ...b, nextDue: advance(b.nextDue, b.frequency), amount: b.variable ? minor : b.amount } : b))
+          ? d.bills.map((b) => {
+              if (b.id !== billId) return b;
+              const next = { ...b, nextDue: advance(b.nextDue, b.frequency), amount: b.variable ? minor : b.amount };
+              // A foreign bill learns the real rate from what was charged, so next month's estimate is closer.
+              if (b.fx && txFx) {
+                const fx = { ...b.fx, rate: impliedRate(minor, txFx), markup: txFx.markup, amount: b.variable ? txFx.amount : b.fx.amount };
+                return { ...next, fx, amount: fxToBase(fx) };
+              }
+              return next;
+            })
           : d.bills,
     }));
     toast(initial ? 'Entry updated' : bill ? `${bill.name} marked paid` : `${kind === 'income' ? 'Income' : 'Expense'} added`);
@@ -210,7 +304,24 @@ export function TxForm({
             ]}
           />
         </div>
-        <AmountInput value={amount} onChange={(v) => (setAmount(v), setError(''))} symbol={money.symbol} />
+        <div className="amount-row">
+          <AmountInput value={amount} onChange={(v) => (setAmount(v), setError(''))} symbol={foreign ? '' : money.symbol} />
+          <CurrencySelect
+            value={currency}
+            onChange={(c) => {
+              setCurrency(c);
+              if (c !== base && !fxDraft.rate) setFxDraft({ ...fxDraft, rate: String(lastKnownRate(data, c) ?? '') });
+            }}
+          />
+        </div>
+        {foreign && (
+          <>
+            <FxRateFields currency={currency} foreignMinor={foreignMinor} draft={fxDraft} setDraft={setFxDraft} resultLabel="estimated" />
+            <Field label={`Charged in ${base}`} hint="From your card or bank statement, if you have it. Kosh uses this as the real cost.">
+              <input className="input num" inputMode="decimal" value={charged} onChange={(e) => (setCharged(e.target.value.replace(/[^\d.,]/g, '')), setError(''))} placeholder={estimate ? toInput(estimate) : '0'} />
+            </Field>
+          </>
+        )}
         {error && <div className="error-text">{error}</div>}
         {budgetNote && (
           <div className={`budget-note ${budgetNote.level}`} role="status">
@@ -819,13 +930,17 @@ const KIND_CATEGORY: Record<BillKind, Record<Book, string>> = {
 };
 
 export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defaults?: { book?: Book }; onClose: () => void }) {
-  const { data, update, money } = useVault();
+  const { data, update } = useVault();
   const toast = useToast();
   const [book, setBook] = useState<Book>(initial?.book ?? defaults?.book ?? 'company');
   const [name, setName] = useState(initial?.name ?? '');
   const [vendor, setVendor] = useState(initial?.vendor ?? '');
   const [kind, setKind] = useState<BillKind>(initial?.kind ?? 'saas');
-  const [amount, setAmount] = useState(initial ? toInput(initial.amount) : '');
+  const base = data.settings.currency;
+  const [currency, setCurrency] = useState(initial?.fx?.currency ?? base);
+  const [amount, setAmount] = useState(initial ? toInput(initial.fx ? initial.fx.amount : initial.amount) : '');
+  const [fxDraft, setFxDraft] = useState<FxDraft>({ rate: String(initial?.fx?.rate ?? lastKnownRate(data, initial?.fx?.currency ?? 'USD') ?? ''), markup: String(initial?.fx?.markup ?? DEFAULT_MARKUP) });
+  const foreign = currency !== base;
   const [variable, setVariable] = useState(initial?.variable ?? false);
   const [frequency, setFrequency] = useState<BillFrequency>(initial?.frequency ?? 'monthly');
   const [nextDue, setNextDue] = useState(initial?.nextDue ?? today());
@@ -840,8 +955,14 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return setError('Give the bill a name, like "AWS".');
-    const minor = toMinor(amount);
-    if (!minor) return setError(variable ? 'Enter a rough estimate. You can change it each time you pay.' : 'Enter the amount.');
+    const entered = toMinor(amount);
+    if (!entered) return setError(variable ? 'Enter a rough estimate. You can change it each time you pay.' : 'Enter the amount.');
+    const rate = parseRate(fxDraft.rate);
+    const markup = parseMarkup(fxDraft.markup);
+    if (foreign && (!rate || markup === null)) return setError(`Enter the ${currency} rate, or press "Today's rate".`);
+    const fx = foreign ? { currency, amount: entered, rate: rate!, markup: markup! } : undefined;
+    // The bill's amount is always kept in your currency, so budgets, forecasts and reminders just work.
+    const minor = fx ? fxToBase(fx) : entered;
     const b: Bill = {
       id: initial?.id ?? uid(),
       createdAt: initial?.createdAt ?? Date.now(),
@@ -856,6 +977,7 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
       category: category.trim() || KIND_CATEGORY[kind][book],
       ...(book === 'company' && projectId ? { projectId } : {}),
       ...(taxRate ? { taxRate } : {}),
+      ...(fx ? { fx } : {}),
       autopay,
       active,
       notes,
@@ -932,12 +1054,24 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
             ))}
           </select>
         </Field>
-        <Field label={`${variable ? 'Estimated amount' : 'Amount'} (${money.symbol})`}>
-          <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" />
+        <Field label={variable ? 'Estimated amount' : 'Amount'}>
+          <div className="input-wrap">
+            <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" />
+            <CurrencySelect
+              value={currency}
+              onChange={(c) => {
+                setCurrency(c);
+                if (c !== base && !fxDraft.rate) setFxDraft({ ...fxDraft, rate: String(lastKnownRate(data, c) ?? '') });
+              }}
+            />
+          </div>
         </Field>
         <Field label="Next due">
           <input className="input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value || today())} />
         </Field>
+        {foreign && (
+          <FxRateFields currency={currency} foreignMinor={toMinor(amount)} draft={fxDraft} setDraft={setFxDraft} resultLabel={`a ${frequency === 'yearly' ? 'year' : frequency === 'quarterly' ? 'quarter' : frequency === 'weekly' ? 'week' : 'month'}, estimated`} />
+        )}
         <label className="check full">
           <input type="checkbox" checked={variable} onChange={(e) => setVariable(e.target.checked)} />
           <span>

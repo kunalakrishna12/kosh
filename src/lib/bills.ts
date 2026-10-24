@@ -53,6 +53,8 @@ export function paymentsOf(data: VaultData, billId: string): Transaction[] {
 export function priceChange(data: VaultData, billId: string): number | null {
   const [last, prev] = paymentsOf(data, billId);
   if (!last || !prev || !prev.amount) return null;
+  // A foreign bill's price is its foreign amount; a weaker rupee alone isn't a price rise.
+  if (last.fx && prev.fx && last.fx.currency === prev.fx.currency && prev.fx.amount) return (last.fx.amount - prev.fx.amount) / prev.fx.amount;
   return (last.amount - prev.amount) / prev.amount;
 }
 

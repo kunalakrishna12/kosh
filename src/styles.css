@@ -768,6 +768,34 @@ kbd {
 .amount-wrap {
   position: relative;
 }
+.amount-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 8px;
+}
+.amount-row .cur-select {
+  height: 64px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.input-wrap .cur-select {
+  width: 86px;
+  flex: none;
+}
+.fx-box {
+  padding: 14px;
+  border-radius: var(--r);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.fx-sum {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.fx-sum b {
+  color: var(--text);
+}
 .amount-wrap .cur {
   position: absolute;
   left: 16px;

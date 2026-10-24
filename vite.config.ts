@@ -15,7 +15,7 @@ const csp: Plugin = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.pwnedpasswords.com",
+      "connect-src 'self' https://api.pwnedpasswords.com https://api.frankfurter.app",
       "frame-src blob:",
       "object-src 'none'",
       "base-uri 'none'",

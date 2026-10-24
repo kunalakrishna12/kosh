@@ -2,6 +2,7 @@ import { CalendarClock, Check, Pencil, Receipt, TrendingDown, TrendingUp, Zap } 
 import { useMemo, useState } from 'react';
 import { CATEGORY_COLORS, Donut } from '../components/charts';
 import { Empty, Seg } from '../components/ui';
+import { foreignFmt } from '../lib/fx';
 import { billState, billSummary, monthlyCost, occurrences, paymentsOf, priceChange } from '../lib/bills';
 import { addDays, dayLabel, parseDate, today } from '../lib/dates';
 import { BILL_KIND_LABEL, FREQUENCY_LABEL, type Bill, type BillKind, type Book } from '../lib/types';
@@ -22,7 +23,7 @@ export function usePayBill() {
   return (b: Bill) =>
     nav.open({
       type: 'tx',
-      defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate },
+      defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate, fx: b.fx },
     });
 }
 
@@ -147,8 +148,19 @@ export function Bills() {
                   </div>
                 </div>
                 <div className="tx-a num">
-                  {o.bill.variable ? '~' : ''}
-                  {money.full(o.bill.amount)}
+                  {o.bill.fx ? (
+                    <>
+                      {foreignFmt(o.bill.fx.currency, o.bill.fx.amount)}
+                      <div className="faint" style={{ fontSize: 11.5, fontWeight: 400 }}>
+                        ≈ {money.full(o.bill.amount)}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {o.bill.variable ? '~' : ''}
+                      {money.full(o.bill.amount)}
+                    </>
+                  )}
                 </div>
                 <div>
                   {canPay ? (
@@ -236,9 +248,9 @@ export function Bills() {
                 <span className="faint">{last ? `last paid ${money.compact(last.amount)} · ${dayLabel(last.date)}` : 'not paid yet'}</span>
               </div>
               <div className="tx-a num">
-                {b.variable ? '~' : ''}
-                {money.full(b.amount)}
+                {b.fx ? foreignFmt(b.fx.currency, b.fx.amount) : `${b.variable ? '~' : ''}${money.full(b.amount)}`}
                 <div className="faint" style={{ fontSize: 11.5, fontWeight: 400 }}>
+                  {b.fx ? `≈ ${money.full(b.amount)} · ` : ''}
                   {money.compact(monthlyCost(b))}/mo
                 </div>
               </div>

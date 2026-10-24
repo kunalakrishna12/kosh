@@ -89,7 +89,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
         hint: b.vendor,
         icon: Receipt,
         run: act(() =>
-          nav.open({ type: 'tx', defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate } }),
+          nav.open({ type: 'tx', defaults: { book: b.book, kind: 'expense', amount: b.amount, category: b.category, note: b.name, billId: b.id, projectId: b.projectId, taxRate: b.taxRate, fx: b.fx } }),
         ),
       }));
     const matches = base.filter((i) => `${i.label} ${i.keywords ?? ''}`.toLowerCase().includes(term));
