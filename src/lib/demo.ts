@@ -1,6 +1,7 @@
-import { addDays, lastMonths, today } from './dates';
+import { addDays, isoDate, lastMonths, today } from './dates';
 import { advance } from './bills';
-import type { Account, AccountKind, Bill, BillFrequency, BillKind, Book, Doc, DocFolder, Invoice, InvoiceItem, Project, Secret, Transaction, Transfer, VaultData } from './types';
+import { computePayslip, emptyStructure, noInputs, splitGross, statutoryDues } from './payroll';
+import type { Account, AccountKind, Staff, StaffType, Bill, BillFrequency, BillKind, Book, Doc, DocFolder, Invoice, InvoiceItem, Project, Secret, Transaction, Transfer, VaultData } from './types';
 import { emptyVault, PROJECT_COLORS } from './types';
 
 /** A believable year of a founder's money and logins, for the demo and for screenshots. */
@@ -69,7 +70,6 @@ export function demoVault(): VaultData {
     const push = (date: string | null, t: Omit<Transaction, 'id' | 'createdAt' | 'date'>) => date && add({ ...t, date });
 
     // Company: fixed costs
-    push(d(1), { book: 'company', kind: 'expense', amount: 1_20_000_00 + mi * 6_000_00, category: 'Payroll', note: 'Team salaries' });
     if (mi % 2 === 0) push(d(11), { book: 'company', kind: 'expense', amount: between(20_000, 60_000), category: 'Marketing', note: pick(['LinkedIn ads', 'Design conference booth', 'Case study video']) });
     if (mi === 4) push(d(9), { book: 'company', kind: 'expense', amount: 1_85_000_00, category: 'Equipment', note: 'MacBook Pros ×2', paidPersonally: true });
     if (mi % 4 === 2) push(d(16), { book: 'company', kind: 'expense', amount: between(12_000, 28_000), category: 'Travel', note: 'Client visit — Bengaluru', paidPersonally: mi === 6 });
@@ -332,6 +332,56 @@ export function demoVault(): VaultData {
 
   // Each bill is charged to the account its payments came from.
   for (const b of v.bills) b.accountId = v.transactions.find((t) => t.billId === b.id && t.accountId)?.accountId;
+
+  // The team, and a year of payroll: payslips, salaries from the current account, and the government deposits.
+  const hire = (name: string, designation: string, type: StaffType, gross: number, join: number, extra: Partial<Staff> = {}, tds = 0): Staff => ({
+    id: id(),
+    name,
+    designation,
+    employeeId: `LS-${String(v.staff.length + 1).padStart(3, '0')}`,
+    type,
+    email: `${name.split(' ')[0].toLowerCase()}@lumen.studio`,
+    phone: '',
+    pan: `${'ABCDE'.slice(0, 3)}P${name.slice(0, 1).toUpperCase()}${String(1000 + v.staff.length * 137).slice(0, 4)}K`,
+    uan: type === 'employee' ? `1010${String(48211900 + v.staff.length * 7331)}` : '',
+    bankName: 'HDFC Bank',
+    accountNumber: `5010023${String(4410000 + v.staff.length * 1931)}`,
+    ifsc: 'HDFC0001234',
+    joinDate: `${months[join]}-${join === 0 ? '01' : '04'}`,
+    structure:
+      type === 'contractor'
+        ? { ...emptyStructure(), basic: gross, pf: false, ptMonthly: 0, tdsPct: 10 }
+        : type === 'intern'
+          ? { ...emptyStructure(), basic: gross, pf: false, esi: true, ptMonthly: 0 }
+          : { ...emptyStructure(), ...splitGross(gross), tdsMonthly: tds },
+    notes: '',
+    createdAt: now,
+    ...extra,
+  });
+  v.staff = [];
+  for (const args of [
+    ['Priya Sharma', 'Senior Product Designer', 'employee', 62_000_00, 0, {}, 2_400_00],
+    ['Rahul Verma', 'Full-stack Developer', 'employee', 52_000_00, 2, {}, 1_200_00],
+    ['Vikram Nair', 'Frontend Developer', 'employee', 40_000_00, 0, { exitDate: `${months[5]}-20` }, 0],
+    ['Sneha Reddy', 'Frontend Developer', 'employee', 38_000_00, 6, {}, 0],
+    ['Arjun Rao', 'Design Intern', 'intern', 15_000_00, 8, {}, 0],
+    ['Kiran Desai', 'QA Consultant', 'contractor', 30_000_00, 3, {}, 0],
+  ] as [string, string, StaffType, number, number, Partial<Staff>, number][]) {
+    v.staff.push(hire(...args));
+  }
+  for (const m of months.slice(0, -1)) {
+    const lastDay = isoDate(new Date(Number(m.slice(0, 4)), Number(m.slice(5)), 0));
+    const slips = v.staff
+      .filter((st) => st.joinDate <= lastDay && (!st.exitDate || st.exitDate >= `${m}-01`))
+      .map((st) => computePayslip(st, m, { ...noInputs(), lopDays: r() < 0.12 ? 1 + Math.floor(r() * 2) : 0, bonus: m.endsWith('-03') && st.type === 'employee' ? 10_000_00 : 0 }, id()));
+    for (const p of slips) {
+      v.payslips.push({ ...p, status: 'paid', paidOn: lastDay, accountId: cCurrent.id });
+      add({ book: 'company', kind: 'expense', amount: p.net, category: p.snapshot.type === 'contractor' ? 'Contractors' : 'Payroll', note: `${p.snapshot.type === 'contractor' ? 'Fee' : 'Salary'} · ${p.snapshot.name}`, date: lastDay, accountId: cCurrent.id });
+    }
+    for (const due of statutoryDues(slips, m)) {
+      if (due.due <= end) add({ book: 'company', kind: 'expense', amount: due.amount, category: 'Payroll taxes', note: due.name, date: due.due, accountId: cCurrent.id });
+    }
+  }
 
   // Small office spends from petty cash.
   months.forEach((m) => {

@@ -71,6 +71,7 @@ describe('app smoke test', () => {
     ['Insights', 'Observations'],
     ['Passwords', 'health'],
     ['Invoices', 'Waiting to be paid'],
+    ['Staff & payroll', 'Monthly payroll cost'],
     ['Budgets', 'Safe to spend'],
     ['Documents', 'Expiring soon'],
     ['Settings', 'Company details for invoices'],
@@ -89,6 +90,7 @@ describe('app smoke test', () => {
       ['You & Company', 'Move money'],
       ['Passwords', 'New login'],
       ['Invoices', 'New invoice'],
+      ['Staff & payroll', 'Add a person'],
       ['Budgets', 'New budget'],
       ['Accounts & cash', 'New account'],
     ]) {
@@ -292,6 +294,38 @@ describe('app smoke test', () => {
     await setValue(charged, '1759');
     await click(document.querySelector('button[form="tx-form"]'));
     expect(row().textContent).toContain('≈ ₹1,759');
+  });
+
+  it('runs the payroll for this month and issues payslips', async () => {
+    await click(navButton('Staff & payroll'));
+    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Run payroll')));
+    const rows = () => [...document.querySelectorAll('.payroll-row:not(.payroll-head):not(.payroll-total)')];
+    expect(rows().length).toBeGreaterThan(3);
+    const first = rows()[0];
+    const netBefore = first.querySelector('b.num')!.textContent;
+    const lop = first.querySelector('input[aria-label^="Loss of pay"]') as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(lop, '2');
+      lop.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(rows()[0].querySelector('b.num')!.textContent).not.toBe(netBefore);
+    await click([...document.querySelectorAll('.modal-f .btn.primary')].find((b) => b.textContent?.includes('Pay ₹')));
+    expect(document.querySelector('.modal')?.textContent).toContain('adds these deposits to Bills');
+    await click([...document.querySelectorAll('.modal .btn')].find((b) => b.textContent?.includes('Confirm and pay')));
+    expect(document.querySelector('.modal')).toBeNull();
+    expect(container.textContent).toContain('Paid');
+
+    // The payslip, from the person's page.
+    await click(container.querySelectorAll('.card.flush .tx')[0]);
+    await click(document.querySelector('.modal .card.flush .tx'));
+    expect(document.querySelector('.paper')?.textContent).toContain('PAYSLIP');
+    expect(document.querySelector('.paper')?.textContent).toContain('Net pay');
+    await closeModal();
+
+    // Government deposits now wait in Bills.
+    await click(navButton('Bills'));
+    expect(container.textContent).toContain('TDS on salaries');
+    expect(container.textContent).toContain('PF & ESI contributions');
   });
 
   it('logged no errors', () => {

@@ -243,7 +243,8 @@ export function TxForm({
         !initial && billId
           ? d.bills.map((b) => {
               if (b.id !== billId) return b;
-              const next = { ...b, nextDue: advance(b.nextDue, b.frequency), amount: b.variable ? minor : b.amount };
+              // A one-time bill (like a PF deposit) closes once paid.
+              const next = { ...b, nextDue: advance(b.nextDue, b.frequency), amount: b.variable ? minor : b.amount, ...(b.once ? { active: false } : {}) };
               // A foreign bill learns the real rate from what was charged, so next month's estimate is closer.
               if (b.fx && txFx) {
                 const fx = { ...b.fx, rate: impliedRate(minor, txFx), markup: txFx.markup, amount: b.variable ? txFx.amount : b.fx.amount };

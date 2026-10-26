@@ -59,6 +59,14 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Print or save as PDF**, copy a payment reminder, and **mark paid** to post the income to your books split by GST rate.
 - See what's waiting to be paid, what's overdue, and your average days to get paid.
 
+### 👥 Staff & payroll
+- Employees, interns and contractors with designation, ID, PAN, UAN, bank details and a monthly salary structure (Basic, HRA, allowances), with a one-click split from gross.
+- **Indian payroll built in:** PF (12% of Basic up to the ₹15,000 ceiling, employer match), ESI (0.75% + 3.25% up to ₹21,000), professional tax, TDS on salary, and TDS % for contractors.
+- **Monthly payroll run** with loss-of-pay days, bonus, reimbursements and advance recovery, prorated for joiners and leavers.
+- **Printable payslips** (save as PDF), net pay in words, employer contributions shown.
+- Paying records each salary as a company expense and adds the **TDS, PF/ESI and PT deposits to Bills** with their due dates.
+- Headcount, monthly payroll cost, payroll by month, year-to-date pay, TDS and PF per person, and a reminder when this month's payroll is due.
+
 ### 🎯 Budgets
 - **One monthly budget** for you and one for the company, covering every expense, bills included.
 - **Safe to spend**: what's left after spending so far *and* bills still due this month, with a daily allowance.

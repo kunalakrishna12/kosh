@@ -1,5 +1,6 @@
 import { billSummary, priceChange } from './bills';
 import { budgetStatus, overallStatus } from './budgets';
+import { payrollDue, payrollMonth, staffForMonth } from './payroll';
 import { invoiceState, totals } from './invoices';
 import { addDays, lastMonths, monthKey, today } from './dates';
 import type { Book, Project, Transfer, TxKind, VaultData } from './types';
@@ -304,6 +305,15 @@ export function insights(data: VaultData, fmt: (minor: number) => string, end = 
     if (change !== null && change >= 0.2) {
       out.push({ tone: 'warn', title: `${bill.name} bill up ${Math.round(change * 100)}%`, detail: `Last payment was ${fmt(bill.amount)}. Check usage, or set a spending limit with ${bill.vendor || 'the provider'}.` });
     }
+  }
+
+  if (payrollDue(data, end)) {
+    const m = payrollMonth(data, end.slice(0, 7));
+    out.unshift({
+      tone: 'warn',
+      title: m.status === 'none' ? `Run this month's payroll` : `This month's payslips are ready but not paid`,
+      detail: `${staffForMonth(data, end.slice(0, 7)).length} people to pay. Open Staff & payroll to run it.`,
+    });
   }
 
   const overdueInv = data.invoices.filter((i) => invoiceState(i, end) === 'overdue');

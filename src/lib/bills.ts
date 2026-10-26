@@ -37,7 +37,7 @@ export function occurrences(bills: Bill[], from: string, to: string): Occurrence
   for (const b of bills) {
     if (!b.active) continue;
     let d = b.nextDue;
-    for (let i = 0; d <= to && i < 400; i++) {
+    for (let i = 0; d <= to && i < (b.once ? 1 : 400); i++) {
       if (d >= from || i === 0) out.push({ bill: b, date: d });
       d = advance(d, b.frequency);
     }
@@ -68,7 +68,7 @@ export interface BillSummary {
 export function billSummary(data: VaultData, t = today()): BillSummary {
   const active = data.bills.filter((b) => b.active);
   const monthly = { personal: 0, company: 0 };
-  for (const b of active) monthly[b.book] += monthlyCost(b);
+  for (const b of active) if (!b.once) monthly[b.book] += monthlyCost(b);
   const dueNext30 = occurrences(active, t, addDays(t, 30)).reduce((s, o) => s + o.bill.amount, 0);
   return {
     monthly,

@@ -2289,6 +2289,75 @@ button.fund-name:hover span {
   gap: 10px;
   align-items: center;
 }
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--company);
+  background: var(--company-soft);
+}
+.avatar.sm {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+.payroll-table {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+}
+.payroll-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.6fr) 64px 90px 90px 90px 100px 96px 104px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  min-width: 860px;
+}
+.payroll-row .input {
+  height: 32px;
+  padding: 0 8px;
+}
+.payroll-row > :nth-child(n + 6) {
+  text-align: right;
+}
+.payroll-row.done {
+  background: var(--income-soft);
+}
+.payroll-head {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+.payroll-total {
+  border-bottom: 0;
+  font-weight: 600;
+  background: var(--surface-2);
+}
+.slip-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
+  padding: 16px 0;
+}
+.slip-table td:nth-child(3),
+.slip-table th:nth-child(3) {
+  border-left: 1px solid #ecebe6;
+}
+.slip-total td {
+  font-weight: 700;
+  background: #faf9f6;
+}
 .swatch-btn {
   width: 20px;
   height: 20px;
@@ -2394,6 +2463,10 @@ button.fund-name:hover span {
   html.print-invoice .shell,
   html.print-invoice .modal-h,
   html.print-invoice .modal-f {
+    display: none !important;
+  }
+  /* Only the topmost dialog (the payslip or invoice) prints. */
+  html.print-invoice body > .scrim:not(:last-child) {
     display: none !important;
   }
   html.print-invoice .scrim {
@@ -2506,6 +2579,9 @@ button.fund-name:hover span {
   }
   .paper {
     padding: 20px;
+  }
+  .slip-grid {
+    grid-template-columns: 1fr 1fr;
   }
   .paper-head,
   .paper-bill,

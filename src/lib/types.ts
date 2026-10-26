@@ -135,6 +135,8 @@ export interface Bill {
   fx?: Fx;
   /** The card or account it's charged to. Pre-filled when you pay it. */
   accountId?: string;
+  /** A one-time bill (like this month's PF or TDS deposit): closes after it's paid. */
+  once?: boolean;
   autopay: boolean;
   active: boolean;
   notes: string;
@@ -291,6 +293,81 @@ export interface Rule {
   createdAt: number;
 }
 
+export type StaffType = 'employee' | 'intern' | 'contractor';
+
+export const STAFF_TYPE_LABEL: Record<StaffType, string> = {
+  employee: 'Employee',
+  intern: 'Intern',
+  contractor: 'Contractor / consultant',
+};
+
+/** Monthly salary, in minor units, and which statutory deductions apply. */
+export interface SalaryStructure {
+  basic: number;
+  hra: number;
+  special: number;
+  other: number;
+  /** Provident Fund: 12% of Basic (up to the ₹15,000 wage ceiling), matched by the employer. */
+  pf: boolean;
+  /** ESI: 0.75% employee + 3.25% employer, for gross pay up to ₹21,000. */
+  esi: boolean;
+  /** Professional tax per month (state-wise, often ₹200). */
+  ptMonthly: number;
+  /** Income-tax TDS on salary per month, as worked out for the year. */
+  tdsMonthly: number;
+  /** For contractors: TDS percent on the fee (194J 10%, 194C 1–2%). */
+  tdsPct: number;
+}
+
+export interface Staff {
+  id: string;
+  name: string;
+  designation: string;
+  employeeId: string;
+  type: StaffType;
+  email: string;
+  phone: string;
+  pan: string;
+  uan: string;
+  bankName: string;
+  accountNumber: string;
+  ifsc: string;
+  joinDate: string;
+  exitDate?: string;
+  structure: SalaryStructure;
+  notes: string;
+  createdAt: number;
+}
+
+export interface PayLine {
+  label: string;
+  amount: number;
+}
+
+/** One person's pay for one month: a frozen record, so later salary changes don't rewrite history. */
+export interface Payslip {
+  id: string;
+  staffId: string;
+  /** YYYY-MM */
+  month: string;
+  daysInMonth: number;
+  paidDays: number;
+  lopDays: number;
+  earnings: PayLine[];
+  deductions: PayLine[];
+  /** Employer PF and ESI: a cost to the company, not taken from pay. */
+  employer: PayLine[];
+  gross: number;
+  totalDeductions: number;
+  net: number;
+  status: 'draft' | 'paid';
+  paidOn?: string;
+  accountId?: string;
+  /** The details printed on the slip, as they were that month. */
+  snapshot: { name: string; designation: string; employeeId: string; type: StaffType; pan: string; uan: string; bankName: string; accountNumber: string; joinDate: string };
+  createdAt: number;
+}
+
 export type DocFolder = 'invoices' | 'receipts' | 'tax' | 'bank' | 'legal' | 'contracts' | 'identity' | 'insurance' | 'property' | 'other';
 
 export const DOC_FOLDER_LABEL: Record<DocFolder, string> = {
@@ -354,6 +431,8 @@ export interface VaultData {
   accounts: Account[];
   moves: Move[];
   sips: Sip[];
+  staff: Staff[];
+  payslips: Payslip[];
 }
 
 export const TO_COMPANY: TransferReason[] = ['capital', 'loan'];
@@ -407,6 +486,8 @@ export function emptyVault(): VaultData {
     accounts: [],
     moves: [],
     sips: [],
+    staff: [],
+    payslips: [],
   };
 }
 

@@ -9,6 +9,7 @@ import { NAV_GROUPS, NAV_ITEMS, NavCtx, type Dialog, type Nav, type View } from 
 import { useVault } from './store';
 import { AccountForm, Accounts, MoveForm, SipForm } from './views/Accounts';
 import { Bills } from './views/Bills';
+import { PayrollRun, StaffForm, StaffView } from './views/Staff';
 import { BudgetForm, Budgets } from './views/Budgets';
 import { Documents, UploadForm } from './views/Documents';
 import { ImportForm } from './views/Import';
@@ -70,12 +71,13 @@ export function useTheme(): [ThemePref, (t: ThemePref) => void] {
 }
 
 /** What the "+" button in the top bar creates on each screen. */
-const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret' | 'invoice' | 'budget' | 'upload' | 'account'; label: string }> = {
+const PRIMARY: Record<View, { type: 'tx' | 'bill' | 'project' | 'transfer' | 'secret' | 'invoice' | 'budget' | 'upload' | 'account' | 'staff'; label: string }> = {
   overview: { type: 'tx', label: 'Entry' },
   money: { type: 'tx', label: 'Entry' },
   accounts: { type: 'account', label: 'Account' },
   bills: { type: 'bill', label: 'Bill' },
   invoices: { type: 'invoice', label: 'Invoice' },
+  staff: { type: 'staff', label: 'Person' },
   budgets: { type: 'budget', label: 'Budget' },
   documents: { type: 'upload', label: 'Upload' },
   projects: { type: 'project', label: 'Project' },
@@ -92,6 +94,7 @@ const TITLES: Record<View, string> = {
   accounts: 'Accounts & cash',
   bills: 'Bills',
   invoices: 'Invoices',
+  staff: 'Staff & payroll',
   budgets: 'Budgets',
   documents: 'Documents',
   projects: 'Projects',
@@ -173,6 +176,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
     accounts: Accounts,
     bills: Bills,
     invoices: Invoices,
+    staff: StaffView,
     projects: Projects,
     owner: Owner,
     budgets: Budgets,
@@ -274,6 +278,8 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
       {dialog?.type === 'budget' && <BudgetForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'import' && <ImportForm onClose={close} />}
       {dialog?.type === 'account' && <AccountForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
+      {dialog?.type === 'staff' && <StaffForm initial={dialog.initial} onClose={close} />}
+      {dialog?.type === 'payroll' && <PayrollRun month={dialog.month} onClose={close} />}
       {dialog?.type === 'sip' && <SipForm initial={dialog.initial} onClose={close} />}
       {dialog?.type === 'move' && <MoveForm initial={dialog.initial} defaults={dialog.defaults} onClose={close} />}
       {dialog?.type === 'upload' && <UploadForm files={dialog.files} defaults={dialog.defaults} onClose={close} />}
