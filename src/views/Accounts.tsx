@@ -9,7 +9,7 @@ import { accountBalances } from '../lib/analytics';
 import { addDays, dayLabel, today } from '../lib/dates';
 import { foreignFmt } from '../lib/fx';
 import { toBalance, toInput, toMinor } from '../lib/money';
-import { ACCOUNT_KIND_LABEL, type Account, type AccountKind, type Book, type Move, type Sip } from '../lib/types';
+import { ACCOUNT_KIND_LABEL, TO_COMPANY, TO_PERSONAL, TRANSFER_LABEL, type Account, type AccountKind, type Book, type Move, type Sip, type Transfer, type TransferReason } from '../lib/types';
 import { useNav } from '../nav';
 import { useVault } from '../store';
 
@@ -92,7 +92,7 @@ export function Accounts() {
           </button>
         )}
         <button className="btn sm" onClick={() => nav.open({ type: 'move' })}>
-          <ArrowLeftRight size={14} /> Move money between accounts
+          <ArrowLeftRight size={14} /> Transfer money
         </button>
       </div>
 
@@ -202,6 +202,8 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
   const copy = useCopy();
   const [reveal, setReveal] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
+  // Withdrawals go to cash on the same side first (personal bank → personal cash).
+  const cashFor = activeAccounts(data).filter((x) => x.kind === 'cash').sort((x, y) => Number(y.book === a.book) - Number(x.book === a.book))[0];
   const Icon = ACCOUNT_ICON[a.kind];
 
   const rows = useMemo(
@@ -239,8 +241,19 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
             Edit account
           </button>
           <div className="right">
-            <button className="btn" onClick={() => nav.open({ type: 'move', defaults: { from: a.id } })}>
-              <ArrowLeftRight size={15} /> Move money
+            {a.kind === 'cash' ? (
+              <button className="btn" onClick={() => nav.open({ type: 'move', defaults: { to: a.id } })}>
+                <Banknote size={15} /> Add cash
+              </button>
+            ) : (
+              cashFor && (
+                <button className="btn" onClick={() => nav.open({ type: 'move', defaults: { from: a.id, to: cashFor.id } })}>
+                  <Banknote size={15} /> Withdraw cash
+                </button>
+              )
+            )}
+            <button className="btn" onClick={() => nav.open({ type: 'move', defaults: a.kind === 'cash' ? { to: a.id } : { from: a.id } })}>
+              <ArrowLeftRight size={15} /> Transfer
             </button>
             <button className="btn primary" onClick={() => setAdjusting(true)}>
               <Scale size={15} /> {a.kind === 'investment' ? 'Update value' : 'Update balance'}
@@ -568,23 +581,50 @@ export function AccountForm({ initial, defaults, onClose }: { initial?: Account;
 export function MoveForm({ initial, defaults, onClose }: { initial?: Move; defaults?: { from?: string; to?: string }; onClose: () => void }) {
   const { data, update, money } = useVault();
   const toast = useToast();
-  const accounts = activeAccounts(data);
-  const [from, setFrom] = useState(initial?.from ?? defaults?.from ?? accounts[0]?.id ?? '');
+  const company = data.settings.companyName || 'Company';
+  // Investments are filled by SIPs; everything else can send or receive.
+  const accounts = activeAccounts(data).filter((a) => a.kind !== 'investment');
+  const firstBank = accounts.find((a) => a.kind !== 'cash') ?? accounts[0];
+  const [from, setFrom] = useState(initial?.from ?? defaults?.from ?? firstBank?.id ?? '');
   const fromAcc = data.accounts.find((a) => a.id === from);
-  const targets = accounts.filter((a) => a.id !== from && a.book === fromAcc?.book);
+  const targets = accounts.filter((a) => a.id !== from);
   const [to, setTo] = useState(initial?.to ?? defaults?.to ?? '');
-  const toId = targets.some((a) => a.id === to) ? to : targets.find((a) => a.kind === 'cash')?.id ?? targets[0]?.id ?? '';
+  // Default destination: cash on the same side, then anything on the same side, then anything.
+  const toId = targets.some((a) => a.id === to)
+    ? to
+    : targets.find((a) => a.kind === 'cash' && a.book === fromAcc?.book)?.id ?? targets.find((a) => a.book === fromAcc?.book)?.id ?? targets.find((a) => a.kind === 'cash')?.id ?? targets[0]?.id ?? '';
+  const toAcc = data.accounts.find((a) => a.id === toId);
+  const crossBook = !!fromAcc && !!toAcc && fromAcc.book !== toAcc.book;
+  const toCompany = crossBook && toAcc!.book === 'company';
+  const reasons: TransferReason[] = toCompany ? TO_COMPANY : TO_PERSONAL;
+  const [reasonChoice, setReason] = useState<TransferReason | ''>('');
+  const reason: TransferReason = reasonChoice && reasons.includes(reasonChoice) ? reasonChoice : reasons[0];
   const [amount, setAmount] = useState(initial ? toInput(initial.amount) : '');
   const [date, setDate] = useState(initial?.date ?? today());
   const [note, setNote] = useState(initial?.note ?? '');
   const [error, setError] = useState('');
-  const toAcc = data.accounts.find((a) => a.id === toId);
+
+  const help: Record<TransferReason, string> = {
+    capital: `Your money invested in ${company}. Not paid back.`,
+    loan: `${company} owes this back to you.`,
+    salary: `Your income, and a ${company} expense.`,
+    dividend: 'Your income from profits. Not a company expense.',
+    repayment: `${company} paying back a loan you gave it.`,
+    reimbursement: `${company} paying you back for bills you covered.`,
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const minor = toMinor(amount);
-    if (!fromAcc || !toAcc) return setError('Pick two accounts.');
+    if (!fromAcc || !toAcc) return setError('Pick where the money comes from and where it goes.');
     if (!minor) return setError('Enter an amount.');
+    if (crossBook) {
+      // Between you and the company: a proper transfer, so P&L and "owed to you" stay right.
+      const t: Transfer = { id: crypto.randomUUID(), reason, amount: minor, date, note: note.trim(), fromAccountId: fromAcc.id, toAccountId: toAcc.id, createdAt: Date.now() };
+      update((d) => ({ ...d, transfers: [t, ...d.transfers] }));
+      toast(`${TRANSFER_LABEL[reason]}: ${money.full(minor)} to ${toAcc.name}`);
+      return onClose();
+    }
     const auto = toAcc.kind === 'cash' ? 'Cash withdrawal' : fromAcc.kind === 'cash' ? 'Cash deposit' : toAcc.kind === 'card' ? 'Card bill paid' : 'Transfer';
     const m: Move = { id: initial?.id ?? crypto.randomUUID(), from: fromAcc.id, to: toAcc.id, amount: minor, date, note: note.trim() || auto, createdAt: initial?.createdAt ?? Date.now() };
     update((d) => ({ ...d, moves: initial ? d.moves.map((x) => (x.id === m.id ? m : x)) : [m, ...d.moves] }));
@@ -592,70 +632,99 @@ export function MoveForm({ initial, defaults, onClose }: { initial?: Move; defau
     onClose();
   };
 
+  const group = (book: Book, list: Account[]) => {
+    const items = list.filter((a) => a.book === book);
+    return items.length ? (
+      <optgroup label={book === 'company' ? company : 'Personal'}>
+        {items.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+            {a.kind === 'cash' ? ' (cash)' : a.number ? ` · ${masked(a.number)}` : ''}
+          </option>
+        ))}
+      </optgroup>
+    ) : null;
+  };
+
   return (
     <Modal
-      title={initial ? 'Edit move' : 'Move money between accounts'}
+      title={initial ? 'Edit transfer' : 'Transfer money'}
       onClose={onClose}
       footer={
         <>
-        {initial && (
-          <button
-            className="btn ghost danger"
-            onClick={() => {
-              update((d) => ({ ...d, moves: d.moves.filter((x) => x.id !== initial.id) }));
-              toast('Move deleted');
-              onClose();
-            }}
-          >
-            <Trash2 size={15} /> Delete
-          </button>
-        )}
-        <div className="right">
-          <button className="btn ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" form="move-form" disabled={!targets.length}>
-            {initial ? 'Save' : 'Move'}
-          </button>
-        </div>
+          {initial && (
+            <button
+              className="btn ghost danger"
+              onClick={() => {
+                update((d) => ({ ...d, moves: d.moves.filter((x) => x.id !== initial.id) }));
+                toast('Transfer deleted');
+                onClose();
+              }}
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+          )}
+          <div className="right">
+            <button className="btn ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" form="move-form" disabled={!targets.length}>
+              {initial ? 'Save' : 'Transfer'}
+            </button>
+          </div>
         </>
       }
     >
       <form id="move-form" className="stack" onSubmit={submit}>
-        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-          For ATM withdrawals, cash deposits, paying a card bill, or moving between your own accounts. It isn't income or spending. To move money between you
-          and the company, use <b>You &amp; Company</b>.
-        </p>
-        <div className="form-grid">
-          <Field label="From">
-            <select className="select" value={from} onChange={(e) => setFrom(e.target.value)}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} ({a.book === 'company' ? 'Company' : 'Personal'})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="To">
-            <select className="select" value={toId} onChange={(e) => setTo(e.target.value)} disabled={!targets.length}>
-              {targets.length === 0 && <option>Add another {fromAcc?.book} account first</option>}
-              {targets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label={`Amount (${money.symbol})`}>
-            <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" autoFocus />
-          </Field>
-          <Field label="Date">
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
-          </Field>
-          <Field label="Note" className="full">
-            <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
-          </Field>
-        </div>
+        {accounts.length < 2 ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Add at least two accounts first, for example your bank account and your cash in hand.
+          </p>
+        ) : (
+          <>
+            <div className="form-grid">
+              <Field label="From">
+                <select className="select" value={from} onChange={(e) => (setFrom(e.target.value), setError(''))} disabled={!!initial}>
+                  {group('personal', accounts)}
+                  {group('company', accounts)}
+                </select>
+              </Field>
+              <Field label="To">
+                <select className="select" value={toId} onChange={(e) => (setTo(e.target.value), setError(''))} disabled={!!initial}>
+                  {group('personal', targets)}
+                  {group('company', targets)}
+                </select>
+              </Field>
+              <Field label={`Amount (${money.symbol})`}>
+                <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" autoFocus />
+              </Field>
+              <Field label="Date">
+                <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+              </Field>
+              {crossBook && (
+                <Field label={toCompany ? `You → ${company}: what is it?` : `${company} → you: what is it?`} hint={help[reason]} className="full">
+                  <select className="select" value={reason} onChange={(e) => setReason(e.target.value as TransferReason)}>
+                    {reasons.map((r) => (
+                      <option key={r} value={r}>
+                        {TRANSFER_LABEL[r]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+              <Field label="Note" className="full">
+                <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
+              </Field>
+            </div>
+            <p className="faint" style={{ margin: 0, fontSize: 12.5 }}>
+              {crossBook
+                ? `Between you and ${company}: recorded under You & Company.`
+                : toAcc?.kind === 'cash'
+                  ? 'A cash withdrawal: your money just changes place. Not income or spending.'
+                  : 'Between your own accounts: not income or spending.'}
+            </p>
+          </>
+        )}
         {error && <div className="error-text">{error}</div>}
       </form>
     </Modal>

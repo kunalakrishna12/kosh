@@ -167,8 +167,8 @@ describe('app smoke test', () => {
     expect(document.querySelector('.modal .stat-v')?.textContent).toContain('1,234');
     await closeModal();
     expect(card.textContent).toContain('1,234');
-    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Move money between accounts')));
-    expect(document.querySelector('.modal-h h2')?.textContent).toBe('Move money between accounts');
+    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Transfer money')));
+    expect(document.querySelector('.modal-h h2')?.textContent).toBe('Transfer money');
     await closeModal();
   });
 
@@ -326,6 +326,54 @@ describe('app smoke test', () => {
     await click(navButton('Bills'));
     expect(container.textContent).toContain('TDS on salaries');
     expect(container.textContent).toContain('PF & ESI contributions');
+  });
+
+  it('transfers bank to cash, and company bank to personal cash', async () => {
+    const setValue = async (el: Element | null, v: string) =>
+      act(async () => {
+        const input = el as HTMLInputElement | HTMLSelectElement;
+        const proto = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+        Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(input, v);
+        input.dispatchEvent(new Event(input instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+      });
+    const card = (name: string) => [...container.querySelectorAll('.acct-card')].find((c) => c.querySelector('.tx-t')?.textContent === name)!;
+    const balance = (name: string) => card(name).querySelector('.stat-v')!.textContent;
+
+    // Personal bank → personal cash: "Withdraw cash" from the bank's page.
+    await click(navButton('Accounts & cash'));
+    const cashBefore = balance('Cash in hand');
+    await click(card('HDFC Savings'));
+    await click([...document.querySelectorAll('.modal-f .btn')].find((b) => b.textContent?.includes('Withdraw cash')));
+    const form = () => document.querySelector('#move-form')!;
+    expect((form().querySelectorAll('select')[1] as HTMLSelectElement).selectedOptions[0].textContent).toContain('Cash in hand');
+    await setValue(form().querySelector('.input.num'), '2000');
+    await click(document.querySelector('button[form="move-form"]'));
+    await closeModal();
+    expect(balance('Cash in hand')).not.toBe(cashBefore);
+
+    // Company bank → personal cash: Kosh asks what it is and records it under You & Company.
+    await click(container.querySelector('.top .btn.primary'));
+    await closeModal();
+    await click([...container.querySelectorAll('.btn')].find((b) => b.textContent?.includes('Transfer money')));
+    const selects = () => form().querySelectorAll('select');
+    const option = (sel: Element, text: string) => [...(sel as HTMLSelectElement).options].find((o) => o.textContent?.startsWith(text))!.value;
+    await setValue(selects()[0], option(selects()[0], 'HDFC Current'));
+    await setValue(selects()[1], option(selects()[1], 'Cash in hand'));
+    expect(form().textContent).toContain('what is it?');
+    await setValue(selects()[2], 'reimbursement');
+    await setValue(form().querySelector('.input.num'), '1500');
+    await click(document.querySelector('button[form="move-form"]'));
+    await click(navButton('You & Company'));
+    expect(container.textContent).toContain('Reimbursement');
+    expect(container.textContent).toContain('HDFC Current → Cash in hand');
+  });
+
+  it('new entry has a Transfer tab', async () => {
+    await click(navButton('Overview'));
+    await click(container.querySelector('.top .btn.primary'));
+    await click([...document.querySelectorAll('.modal .seg button')].find((b) => b.textContent?.includes('Transfer')));
+    expect(document.querySelector('.modal-h h2')?.textContent).toBe('Transfer money');
+    await closeModal();
   });
 
   it('logged no errors', () => {

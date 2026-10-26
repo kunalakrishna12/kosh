@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Gauge, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Gauge, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
@@ -297,11 +297,13 @@ export function TxForm({
           />
           <Seg
             label="Kind"
-            value={kind}
-            onChange={setKind}
+            value={kind as TxKind | 'transfer'}
+            // "Transfer" opens the transfer form: bank to cash, account to account, you and the company.
+            onChange={(v) => (v === 'transfer' ? nav.open({ type: 'move' }) : setKind(v))}
             options={[
               { value: 'expense', label: <><ArrowUpRight size={14} /> Expense</> },
               { value: 'income', label: <><ArrowDownLeft size={14} /> Income</> },
+              ...(initial || !data.accounts.length ? [] : [{ value: 'transfer' as const, label: <><ArrowLeftRight size={14} /> Transfer</> }]),
             ]}
           />
         </div>
