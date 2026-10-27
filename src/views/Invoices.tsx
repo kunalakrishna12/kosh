@@ -10,6 +10,7 @@ import { periods } from '../lib/reports';
 import { TAX_RATES, type Invoice, type InvoiceItem } from '../lib/types';
 import { useNav } from '../nav';
 import { useVault } from '../store';
+import { DateInput } from '../components/DateInput';
 
 const STATE_PILL: Record<InvoiceState, [string, string]> = {
   draft: ['Draft', ''],
@@ -219,7 +220,7 @@ function MarkPaid({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
           {tt.tax ? `, including ${money.full(tt.tax)} GST for your tax summary` : ''}.
         </p>
         <Field label="Received on">
-          <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} autoFocus />
+          <DateInput value={date} onChange={(v) => setDate(v || today())} autoFocus />
         </Field>
         <AccountSelect book="company" value={accountId} onChange={setAccountId} label="Received into" />
       </div>
@@ -541,10 +542,10 @@ export function InvoiceForm({ initial, onClose }: { initial?: Invoice; onClose: 
             <input className="input mono" value={inv.number} onChange={(e) => set({ number: e.target.value })} />
           </Field>
           <Field label="Date">
-            <input className="input" type="date" value={inv.issueDate} onChange={(e) => set({ issueDate: e.target.value || today(), dueDate: addDays(e.target.value || today(), c.paymentTermsDays) })} />
+            <DateInput value={inv.issueDate} onChange={(v) => set({ issueDate: v || today(), dueDate: addDays(v || today(), c.paymentTermsDays) })} />
           </Field>
           <Field label="Due">
-            <input className="input" type="date" value={inv.dueDate} onChange={(e) => set({ dueDate: e.target.value || today() })} />
+            <DateInput value={inv.dueDate} onChange={(v) => set({ dueDate: v || today() })} />
           </Field>
           <Field label="Project">
             <select className="select" value={inv.projectId ?? ''} onChange={(e) => set({ projectId: e.target.value || undefined })}>

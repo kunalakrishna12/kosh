@@ -288,8 +288,8 @@ describe('app smoke test', () => {
     // Pay it: the statement says ₹1,759.
     await click(row().querySelector('[aria-label="Mark Claude Pro paid"]'));
     expect((document.querySelector('.amount-input') as HTMLInputElement).value).toBe('20');
-    const usedAccount = [...document.querySelectorAll('#tx-form .field')].find((f) => f.textContent?.startsWith('Paid from'))!.querySelector('select')!;
-    expect(usedAccount.value).toBe(card.value);
+    // The bill's card is pre-selected in "Paid with".
+    expect(document.querySelector('#tx-form .pay-chip.on')?.textContent).toContain('Company credit card');
     const charged = [...document.querySelectorAll('#tx-form .field')].find((f) => f.textContent?.includes('Charged in INR'))!.querySelector('input');
     await setValue(charged, '1759');
     await click(document.querySelector('button[form="tx-form"]'));
@@ -373,6 +373,45 @@ describe('app smoke test', () => {
     await click(container.querySelector('.top .btn.primary'));
     await click([...document.querySelectorAll('.modal .seg button')].find((b) => b.textContent?.includes('Transfer')));
     expect(document.querySelector('.modal-h h2')?.textContent).toBe('Transfer money');
+    await closeModal();
+  });
+
+  it('cash is an option on expenses and income, and moves the cash balance', async () => {
+    const setValue = async (el: Element | null, v: string) =>
+      act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, v);
+        (el as HTMLInputElement).dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    await click(navButton('Accounts & cash'));
+    const cashCard = () => [...container.querySelectorAll('.acct-card')].find((c) => c.querySelector('.tx-t')?.textContent === 'Cash in hand')!;
+    const before = cashCard().querySelector('.stat-v')!.textContent;
+    await click(container.querySelector('.top .btn.primary'));
+    await closeModal();
+    await act(async () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true })));
+    const chips = () => [...document.querySelectorAll('#tx-form .pay-chip')];
+    expect(chips()[0].textContent).toContain('Cash'); // Cash comes first
+    await click(chips()[0]);
+    await setValue(document.querySelector('.amount-input'), '250');
+    expect(document.querySelector('#tx-form')?.textContent).toMatch(/Cash after this: ₹/);
+    await click(document.querySelector('button[form="tx-form"]'));
+    expect(cashCard().querySelector('.stat-v')!.textContent).not.toBe(before);
+  });
+
+  it('dates use the Kosh calendar, not the browser picker', async () => {
+    expect(document.querySelectorAll('input[type="date"]').length).toBe(0);
+    await click(navButton('Overview'));
+    await act(async () => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'n', bubbles: true })));
+    await click(document.querySelector('#tx-form .date-btn'));
+    expect(document.querySelector('.cal')).toBeTruthy();
+    const days = [...document.querySelectorAll('.cal-day:not(.out)')];
+    await click(days[0]); // the 1st of this month
+    expect(document.querySelector('.cal')).toBeNull();
+    expect(document.querySelector('#tx-form .date-btn')?.textContent).toMatch(/^\w{3}, 1 \w{3} \d{4}$/);
+    // Escape closes the calendar but not the form.
+    await click(document.querySelector('#tx-form .date-btn'));
+    await act(async () => document.querySelector('.cal-day[tabindex="0"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(document.querySelector('.cal')).toBeNull();
+    expect(document.querySelector('#tx-form')).toBeTruthy();
     await closeModal();
   });
 

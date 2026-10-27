@@ -12,6 +12,7 @@ import { toBalance, toInput, toMinor } from '../lib/money';
 import { ACCOUNT_KIND_LABEL, TO_COMPANY, TO_PERSONAL, TRANSFER_LABEL, type Account, type AccountKind, type Book, type Move, type Sip, type Transfer, type TransferReason } from '../lib/types';
 import { useNav } from '../nav';
 import { useVault } from '../store';
+import { DateInput } from '../components/DateInput';
 
 export const ACCOUNT_ICON: Record<AccountKind, typeof Landmark> = {
   savings: PiggyBank,
@@ -699,7 +700,7 @@ export function MoveForm({ initial, defaults, onClose }: { initial?: Move; defau
                 <input className="input num" inputMode="decimal" value={amount} onChange={(e) => (setAmount(e.target.value), setError(''))} placeholder="0" autoFocus />
               </Field>
               <Field label="Date">
-                <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+                <DateInput value={date} onChange={(v) => setDate(v || today())} />
               </Field>
               {crossBook && (
                 <Field label={toCompany ? `You → ${company}: what is it?` : `${company} → you: what is it?`} hint={help[reason]} className="full">
@@ -1050,7 +1051,7 @@ export function SipForm({ initial, onClose }: { initial?: Sip; onClose: () => vo
           </select>
         </Field>
         <Field label="Next SIP date" hint="Kosh rolls it forward each time you mark it done.">
-          <input className="input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value || today())} />
+          <DateInput value={nextDue} onChange={(v) => setNextDue(v || today())} />
         </Field>
         <Field label="Debited from">
           <select className="select" value={fromAccountId} onChange={(e) => setFromAccountId(e.target.value)}>

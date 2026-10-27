@@ -1,5 +1,6 @@
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Briefcase, Copy, Dices, Eye, EyeOff, Gauge, Paperclip, RefreshCw, Trash2, User, Wand2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Banknote, Briefcase, Building2, Copy, CreditCard, Dices, Eye, EyeOff, Gauge, Landmark, Paperclip, RefreshCw, Smartphone, Trash2, User, Wand2 } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { accountBalances } from '../lib/analytics';
 import { today } from '../lib/dates';
 import { toInput, toMinor } from '../lib/money';
 import { DEFAULT_GEN, generatePassword, strength, type GenOptions } from '../lib/passwords';
@@ -15,6 +16,7 @@ import {
   FREQUENCY_LABEL,
   PROJECT_COLORS,
   TAX_RATES,
+  type Account,
   type Bill,
   type BillFrequency,
   type BillKind,
@@ -32,6 +34,7 @@ import {
 } from '../lib/types';
 import { useVault } from '../store';
 import { Field, Modal, Seg, useCopy, useToast } from './ui';
+import { DateInput } from './DateInput';
 
 const uid = () => crypto.randomUUID();
 
@@ -204,7 +207,11 @@ export function TxForm({
   const [accountChoice, setAccountChoice] = useState<string | undefined>(initial ? initial.accountId ?? '' : defaults?.accountId);
   const accountBook: Book = book === 'company' && kind === 'expense' && paidPersonally ? 'personal' : book;
   const bookAccounts = activeAccounts(data, accountBook).map((a) => a.id);
-  const accountId = accountChoice !== undefined && (accountChoice === '' || bookAccounts.includes(accountChoice)) ? accountChoice : defaultAccountId(data, accountBook) ?? '';
+  const hasCash = activeAccounts(data, accountBook).some((a) => a.kind === 'cash');
+  const accountId =
+    accountChoice !== undefined && (accountChoice === '' || bookAccounts.includes(accountChoice) || (accountChoice === NEW_CASH && !hasCash))
+      ? accountChoice
+      : defaultAccountId(data, accountBook) ?? '';
   const [error, setError] = useState('');
 
   const categories = useMemo(() => {
@@ -218,6 +225,12 @@ export function TxForm({
     if (foreign && (!foreignMinor || !fxRate || fxMarkup === null)) return setError(`Enter the ${currency} amount and the exchange rate.`);
     if (!minor) return setError('Enter an amount greater than zero.');
     const txFx = foreign ? { currency, amount: foreignMinor!, rate: fxRate!, markup: fxMarkup! } : undefined;
+    // "Cash" picked before any cash account existed: create one on this side.
+    const newCash: Account | null =
+      accountId === NEW_CASH
+        ? { id: uid(), book: accountBook, name: 'Cash in hand', kind: 'cash', bank: '', holder: '', number: '', ifsc: '', branch: '', upi: '', opening: 0, color: '#65a30d', archived: false, notes: '', createdAt: Date.now() }
+        : null;
+    const finalAccountId = newCash ? newCash.id : accountId;
     const tx: Transaction = {
       id: initial?.id ?? uid(),
       createdAt: initial?.createdAt ?? Date.now(),
@@ -231,12 +244,13 @@ export function TxForm({
       ...(book === 'company' && kind === 'expense' && paidPersonally ? { paidPersonally: true } : {}),
       ...(billId ? { billId } : {}),
       ...(taxRate ? { taxRate } : {}),
-      ...(accountId ? { accountId } : {}),
+      ...(finalAccountId ? { accountId: finalAccountId } : {}),
       ...(initial?.adjustment ? { adjustment: true } : {}),
       ...(txFx ? { fx: txFx } : {}),
     };
     update((d) => ({
       ...d,
+      accounts: newCash ? [...d.accounts, newCash] : d.accounts,
       transactions: initial ? d.transactions.map((t) => (t.id === tx.id ? tx : t)) : [tx, ...d.transactions],
       // Paying a bill moves it on to its next due date, and remembers the latest amount.
       bills:
@@ -326,6 +340,15 @@ export function TxForm({
           </>
         )}
         {error && <div className="error-text">{error}</div>}
+        <PaidWith
+          book={accountBook}
+          kind={kind}
+          value={accountId}
+          onChange={setAccountChoice}
+          amount={baseAmount ?? 0}
+          editing={initial}
+          label={kind === 'income' ? 'Received into' : accountBook !== book ? 'Paid with (your money)' : 'Paid with'}
+        />
         {budgetNote && (
           <div className={`budget-note ${budgetNote.level}`} role="status">
             <Gauge size={15} />
@@ -342,10 +365,9 @@ export function TxForm({
             </datalist>
           </Field>
           <Field label="Date">
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} required />
+            <DateInput value={date} onChange={(v) => setDate(v || today())} />
           </Field>
-          <AccountSelect book={accountBook} value={accountId} onChange={setAccountChoice} label={kind === 'income' ? 'Received into' : accountBook !== book ? 'Paid from (your account)' : 'Paid from'} />
-          <Field label="Note" className={bookAccounts.length ? undefined : 'full'}>
+          <Field label="Note">
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={kind === 'expense' ? 'What was it for?' : 'Who paid you?'} />
           </Field>
           {book === 'company' && (
@@ -408,6 +430,84 @@ export function TxForm({
         </div>
       </form>
     </Modal>
+  );
+}
+
+
+/* ───────── Paid with / received into ───────── */
+
+const NEW_CASH = 'new-cash';
+
+const KIND_ICON = { cash: Banknote, card: CreditCard, savings: Landmark, current: Building2, wallet: Smartphone, deposit: Landmark, investment: Landmark } as const;
+
+/**
+ * Where the money came from or went: Cash first, then banks, cards and wallets, each with its
+ * balance. Cash is always offered; if there's no cash account yet, one is created on save.
+ */
+function PaidWith({
+  book,
+  kind,
+  value,
+  onChange,
+  amount,
+  editing,
+  label,
+}: {
+  book: Book;
+  kind: TxKind;
+  value: string;
+  onChange: (id: string) => void;
+  amount: number;
+  editing?: Transaction;
+  label: string;
+}) {
+  const { data, money } = useVault();
+  const balances = accountBalances(data).byAccount;
+  const list = activeAccounts(data, book).filter((a) => a.kind !== 'investment');
+  const cash = list.filter((a) => a.kind === 'cash');
+  const others = list.filter((a) => a.kind !== 'cash');
+  const chosen = list.find((a) => a.id === value);
+  // What the chosen account would hold after this entry (not counting this entry twice when editing).
+  const before = chosen ? (balances.get(chosen.id) ?? 0) - (editing?.accountId === chosen.id ? (editing.kind === 'income' ? editing.amount : -editing.amount) : 0) : 0;
+  const after = before + (kind === 'income' ? amount : -amount);
+  const Chip = ({ id, icon: Icon, name, sub }: { id: string; icon: typeof Banknote; name: string; sub: string }) => (
+    <button type="button" className={`pay-chip ${value === id ? 'on' : ''}`} aria-pressed={value === id} onClick={() => onChange(id)}>
+      <Icon size={16} />
+      <span>
+        <b>{name}</b>
+        <small className="num">{sub}</small>
+      </span>
+    </button>
+  );
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <div className="pay-chips">
+        {cash.length ? (
+          cash.map((a) => <Chip key={a.id} id={a.id} icon={Banknote} name={cash.length > 1 || !/cash/i.test(a.name) ? `Cash · ${a.name}` : 'Cash'} sub={money.full(balances.get(a.id) ?? 0)} />)
+        ) : (
+          <Chip id={NEW_CASH} icon={Banknote} name="Cash" sub="new · starts at ₹0" />
+        )}
+        {others.map((a) => (
+          <Chip key={a.id} id={a.id} icon={KIND_ICON[a.kind]} name={a.name} sub={a.kind === 'card' ? `${money.full(-(balances.get(a.id) ?? 0))} due` : money.full(balances.get(a.id) ?? 0)} />
+        ))}
+        <button type="button" className={`pay-chip ghost ${value === '' ? 'on' : ''}`} aria-pressed={value === ''} onClick={() => onChange('')}>
+          <span>
+            <b>Not set</b>
+          </span>
+        </button>
+      </div>
+      {kind === 'expense' && chosen && chosen.kind !== 'card' && amount > 0 && after < 0 && (
+        <small className="down" style={{ fontWeight: 550 }}>
+          {chosen.kind === 'cash' ? `You have ${money.full(before)} in cash.` : `${chosen.name} has ${money.full(before)}.`} This would take it to {money.full(after)}.
+        </small>
+      )}
+      {chosen && amount > 0 && after >= 0 && (
+        <small>
+          {chosen.kind === 'card' ? `Card due after this: ${money.full(-after)}` : `${chosen.kind === 'cash' ? 'Cash' : chosen.name} after this: ${money.full(after)}`}
+        </small>
+      )}
+    </div>
   );
 }
 
@@ -516,7 +616,7 @@ export function TransferForm({ initial, onClose }: { initial?: Transfer; onClose
             </select>
           </Field>
           <Field label="Date">
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+            <DateInput value={date} onChange={(v) => setDate(v || today())} />
           </Field>
           <Field label="Note">
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
@@ -618,7 +718,7 @@ export function ProjectForm({ initial, onClose }: { initial?: Project; onClose: 
           <input className="input" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Acme Corp" />
         </Field>
         <Field label="Start date">
-          <input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value || today())} />
+          <DateInput value={startDate} onChange={(v) => setStartDate(v || today())} />
         </Field>
         <Field label={`Contract value (${money.symbol})`} hint="What the client pays you in total.">
           <input className="input num" inputMode="decimal" value={contract} onChange={(e) => setContract(e.target.value)} placeholder="0" />
@@ -1074,7 +1174,7 @@ export function BillForm({ initial, defaults, onClose }: { initial?: Bill; defau
           </div>
         </Field>
         <Field label="Next due">
-          <input className="input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value || today())} />
+          <DateInput value={nextDue} onChange={(v) => setNextDue(v || today())} />
         </Field>
         {foreign && (
           <FxRateFields currency={currency} foreignMinor={toMinor(amount)} draft={fxDraft} setDraft={setFxDraft} resultLabel={`a ${frequency === 'yearly' ? 'year' : frequency === 'quarterly' ? 'quarter' : frequency === 'weekly' ? 'week' : 'month'}, estimated`} />

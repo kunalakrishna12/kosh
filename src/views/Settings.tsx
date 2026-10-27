@@ -2,7 +2,7 @@ import { Download, ExternalLink, Github, ShieldCheck, Trash2, Upload } from 'luc
 import { useRef, useState, type FormEvent } from 'react';
 import { useTheme } from '../App';
 import { StrengthMeter } from '../components/forms';
-import { download, Field, Seg, useToast } from '../components/ui';
+import { download, Field, Modal, Seg, useToast } from '../components/ui';
 import { WrongPasswordError } from '../lib/crypto';
 import { today } from '../lib/dates';
 import { formatNumber, INDIAN_STATES } from '../lib/invoices';
@@ -84,6 +84,7 @@ export function SettingsView() {
   };
 
   const [erase, setErase] = useState('');
+  const [restoring, setRestoring] = useState<File | null>(null);
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -275,17 +276,44 @@ export function SettingsView() {
               type="file"
               accept=".kosh,.json,application/json"
               hidden
-              onChange={async (e) => {
+              onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (!f) return;
-                if (!window.confirm(`Replace this vault with ${f.name}? You will need that backup's password to open it.`)) return;
-                try {
-                  await importBackup(f);
-                } catch (err) {
-                  toast((err as Error).message);
-                }
+                e.target.value = '';
+                if (f) setRestoring(f);
               }}
             />
+            {restoring && (
+              <Modal
+                title="Replace this vault with the backup?"
+                onClose={() => setRestoring(null)}
+                footer={
+                  <div className="right">
+                    <button className="btn ghost" onClick={() => setRestoring(null)}>
+                      Cancel
+                    </button>
+                    <button
+                      className="btn danger solid"
+                      onClick={async () => {
+                        const f = restoring;
+                        setRestoring(null);
+                        try {
+                          await importBackup(f);
+                        } catch (err) {
+                          toast((err as Error).message);
+                        }
+                      }}
+                    >
+                      Replace and lock
+                    </button>
+                  </div>
+                }
+              >
+                <p className="muted" style={{ margin: 0 }}>
+                  Everything in this vault on this device is replaced by <b style={{ color: 'var(--text)' }}>{restoring.name}</b>. Kosh then locks, and you open it with
+                  that backup's master password. Download a backup of the current vault first if you might need it.
+                </p>
+              </Modal>
+            )}
           </div>
         </Row>
         <Row title="Erase this vault" desc="Deletes everything on this device. This cannot be undone. Download a backup first.">

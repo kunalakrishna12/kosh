@@ -847,6 +847,225 @@ kbd {
   color: var(--expense);
   font-weight: 550;
 }
+/* Date field + calendar (replaces the browser's date picker everywhere) */
+.date-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.date-btn svg {
+  color: var(--text-3);
+  flex: none;
+}
+.date-btn.empty span {
+  color: var(--text-3);
+}
+.date-btn[aria-expanded='true'] {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.cal {
+  position: fixed;
+  z-index: 70;
+  width: 296px;
+  padding: 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  animation: pop 0.16s var(--ease) both;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cal-head b {
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cal-wd {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 4px 0 6px;
+}
+.cal-day {
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: background 0.12s, color 0.12s;
+}
+.cal-day:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+.cal-day.out {
+  color: var(--text-3);
+}
+.cal-day.today {
+  box-shadow: inset 0 0 0 1.5px var(--gold);
+  font-weight: 650;
+}
+.cal-day.sel,
+.cal-day.sel:hover {
+  background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  color: var(--gold-ink);
+  font-weight: 650;
+}
+.cal-day:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.cal-day:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 0;
+}
+.cal-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* "Paid with": Cash first, then banks, cards and wallets */
+.pay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pay-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-2);
+  color: var(--text-2);
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.pay-chip span {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+.pay-chip b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pay-chip small {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pay-chip:hover {
+  border-color: color-mix(in srgb, var(--gold) 40%, var(--line-2));
+}
+.pay-chip.on {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+.pay-chip.ghost {
+  border-style: dashed;
+  background: transparent;
+}
+.pay-chip.ghost b {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+/* Range slider in the app's style */
+input[type='range'].range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  outline: none;
+}
+input[type='range'].range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  box-shadow: 0 0 0 4px var(--gold-soft);
+  cursor: pointer;
+}
+input[type='range'].range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gold);
+  cursor: pointer;
+}
+
+/* Checkboxes in the app's style instead of the browser's */
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--line-2);
+  background: var(--bg-2);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+input[type='checkbox']::after {
+  content: '';
+  width: 10px;
+  height: 6px;
+  border: 2px solid var(--gold-ink);
+  border-top: 0;
+  border-right: 0;
+  transform: rotate(-45deg) translate(1px, -1px) scale(0);
+  transition: transform 0.15s var(--ease);
+}
+input[type='checkbox']:checked {
+  background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  border-color: transparent;
+}
+input[type='checkbox']:checked::after {
+  transform: rotate(-45deg) translate(1px, -1px) scale(1);
+}
+input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--gold-soft);
+}
+.check input[type='checkbox'] {
+  margin-top: 2px;
+}
+
 .error-text {
   color: var(--expense);
   font-size: 13px;

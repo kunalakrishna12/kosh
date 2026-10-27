@@ -29,6 +29,7 @@ import { periods } from '../lib/reports';
 import { STAFF_TYPE_LABEL, type Payslip, type SalaryStructure, type Staff, type StaffType } from '../lib/types';
 import { useNav } from '../nav';
 import { useVault } from '../store';
+import { DateInput } from '../components/DateInput';
 
 const isActive = (s: Staff, t = today()) => s.joinDate <= t && (!s.exitDate || s.exitDate >= t);
 
@@ -606,7 +607,7 @@ export function PayrollRun({ month: initialMonth, onClose }: { month?: string; o
         <div className="card mt" style={{ background: 'var(--bg-2)' }}>
           <div className="form-grid">
             <Field label="Paid on">
-              <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value || today())} />
+              <DateInput value={date} onChange={(v) => setDate(v || today())} />
             </Field>
             <AccountSelect book="company" value={accountId} onChange={setAccountId} label="Paid from" />
           </div>
@@ -755,10 +756,10 @@ export function StaffForm({ initial, onClose }: { initial?: Staff; onClose: () =
             <input className="input mono" value={p.employeeId} onChange={(e) => set({ employeeId: e.target.value })} />
           </Field>
           <Field label="Joined on">
-            <input className="input" type="date" value={p.joinDate} onChange={(e) => set({ joinDate: e.target.value || today() })} />
+            <DateInput value={p.joinDate} onChange={(v) => set({ joinDate: v || today() })} />
           </Field>
           <Field label="Last working day" hint="Leave empty while they're with you.">
-            <input className="input" type="date" value={p.exitDate ?? ''} onChange={(e) => set({ exitDate: e.target.value || undefined })} />
+            <DateInput value={p.exitDate ?? ''} onChange={(v) => set({ exitDate: v || undefined })} optional />
           </Field>
         </div>
 

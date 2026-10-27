@@ -6,6 +6,7 @@ import { addDays, dayLabel, parseDate, today } from '../lib/dates';
 import { DOC_FOLDER_LABEL, type Book, type Doc, type DocFolder } from '../lib/types';
 import { useNav } from '../nav';
 import { MAX_DOC_BYTES, useVault } from '../store';
+import { DateInput } from '../components/DateInput';
 
 /**
  * A masked text field for a file's password. Deliberately not type="password": Safari would offer to
@@ -328,7 +329,7 @@ export function UploadForm({ files, defaults, onClose }: { files: File[]; defaul
             </select>
           </Field>
           <Field label="Expires on" hint="Optional. You'll be reminded 90 days before.">
-            <input className="input" type="date" value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
+            <DateInput value={expiresOn} onChange={(v) => setExpiresOn(v)} optional />
           </Field>
           <Field label="Tags" className="full">
             <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="GST, FY26, client" />
@@ -458,7 +459,7 @@ export function DocPreview({ doc, onClose }: { doc: Doc; onClose: () => void }) 
             </select>
           </Field>
           <Field label="Expires on">
-            <input className="input" type="date" value={meta.expiresOn} onChange={(e) => setMeta({ ...meta, expiresOn: e.target.value })} />
+            <DateInput value={meta.expiresOn} onChange={(v) => setMeta({ ...meta, expiresOn: v })} optional />
           </Field>
           <Field label="Tags" className="full">
             <input className="input" value={meta.tags} onChange={(e) => setMeta({ ...meta, tags: e.target.value })} />
