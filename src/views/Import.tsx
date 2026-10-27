@@ -106,7 +106,7 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
     const now = Date.now();
     // A credit that pays an invoice is recorded the way "Mark paid" records it: one entry per GST rate.
     const paidInvoices = new Map(chosen.filter((r) => r.invoiceId).map((r) => [r.invoiceId!, r.date]));
-    const invoiceTxs = [...paidInvoices].flatMap(([id, date]) => paymentEntries(data.invoices.find((x) => x.id === id)!, data.settings.company, date, () => crypto.randomUUID(), accountId || undefined)).map((t) => ({ ...t, checked: true }));
+    const invoiceTxs = [...paidInvoices].flatMap(([id, date]) => paymentEntries(data.invoices.find((x) => x.id === id)!, data.settings.company, date, () => crypto.randomUUID(), accountId || undefined));
     const txs: Transaction[] = chosen.filter((r) => !r.invoiceId).map((r, i) => ({
       id: crypto.randomUUID(),
       book,
@@ -116,7 +116,6 @@ export function ImportForm({ onClose }: { onClose: () => void }) {
       date: r.date,
       note: r.description,
       ...(r.billId ? { billId: r.billId } : {}),
-      checked: true,
       ...(accountId ? { accountId } : {}),
       createdAt: now - i,
     }));
