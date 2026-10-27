@@ -4,7 +4,7 @@ import { Sparkline } from '../components/charts';
 import { BookLabel } from '../components/forms';
 import { activityOf, ActivityRow } from '../components/rows';
 import { Empty, Field, Modal, Seg, useCopy, useToast } from '../components/ui';
-import { ACCOUNT_COLORS, activeAccounts, balanceHistory, defaultAccountId, investmentStats, investmentTotals, masked, monthlySipTotal, paySip, setAccountValue } from '../lib/accounts';
+import { ACCOUNT_COLORS, activeAccounts, balanceHistory, checkedBalance, defaultAccountId, investmentStats, investmentTotals, masked, monthlySipTotal, paySip, setAccountValue } from '../lib/accounts';
 import { accountBalances } from '../lib/analytics';
 import { addDays, dayLabel, today } from '../lib/dates';
 import { foreignFmt } from '../lib/fx';
@@ -202,6 +202,7 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
   const copy = useCopy();
   const [reveal, setReveal] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
+  const checked = checkedBalance(data, a.id);
   // Withdrawals go to cash on the same side first (personal bank → personal cash).
   const cashFor = activeAccounts(data).filter((x) => x.kind === 'cash').sort((x, y) => Number(y.book === a.book) - Number(x.book === a.book))[0];
   const Icon = ACCOUNT_ICON[a.kind];
@@ -269,6 +270,16 @@ function AccountDetail({ a, balance, onClose }: { a: Account; balance: number; o
             {money.full(balance)}
           </div>
           {a.kind === 'investment' ? <InvestedLine accountId={a.id} /> : <div className="stat-d">{ACCOUNT_KIND_LABEL[a.kind]}</div>}
+          {a.kind !== 'investment' && a.kind !== 'cash' && (
+            <div className="checked-bal">
+              <span>
+                Checked balance ✓ <b className="num">{money.full(checked.balance)}</b>
+              </span>
+              <span className="faint">
+                {checked.unchecked ? `${checked.unchecked} entr${checked.unchecked === 1 ? 'y' : 'ies'} not checked yet` : 'Everything is checked'} · should match your statement
+              </span>
+            </div>
+          )}
           {data.bills.filter((b) => b.active && b.accountId === a.id).length > 0 && (
             <div className="acct-bills">
               <div className="faint" style={{ fontSize: 12 }}>

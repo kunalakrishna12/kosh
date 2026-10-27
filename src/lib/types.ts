@@ -46,6 +46,8 @@ export interface Transaction {
   adjustment?: boolean;
   /** Set when this was charged in another currency; `amount` is what it cost in yours. */
   fx?: Fx;
+  /** Ticked off against the bank or card statement. */
+  checked?: boolean;
   createdAt: number;
 }
 
@@ -91,6 +93,7 @@ export interface Move {
   note: string;
   /** Set when this move is an instalment of a SIP. */
   sipId?: string;
+  checked?: boolean;
   createdAt: number;
 }
 
@@ -184,6 +187,7 @@ export interface Transfer {
   note: string;
   fromAccountId?: string;
   toAccountId?: string;
+  checked?: boolean;
   createdAt: number;
 }
 

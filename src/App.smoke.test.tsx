@@ -376,6 +376,29 @@ describe('app smoke test', () => {
     await closeModal();
   });
 
+  it('ticks entries as checked against the statement', async () => {
+    await click(navButton('Transactions'));
+    const notChecked = () => Number(container.querySelector('.strip')!.textContent!.match(/(\d+) not checked/)?.[1] ?? 0);
+    const before = notChecked();
+    const firstTick = () => container.querySelector('.tx.activity .tick') as HTMLButtonElement;
+    const wasOn = firstTick().getAttribute('aria-pressed') === 'true';
+    await click(firstTick());
+    expect(firstTick().getAttribute('aria-pressed')).toBe(String(!wasOn));
+    expect(notChecked()).toBe(wasOn ? before + 1 : before - 1);
+    expect(document.querySelector('.modal')).toBeNull(); // ticking doesn't open the entry
+    await click(firstTick());
+    expect(notChecked()).toBe(before);
+
+    // Filter to what still needs checking.
+    const filter = container.querySelector('select[aria-label="Checked"]') as HTMLSelectElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(filter, 'unchecked');
+      filter.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect([...container.querySelectorAll('.tx.activity .tick')].every((t) => t.getAttribute('aria-pressed') === 'false')).toBe(true);
+    expect(container.textContent).toMatch(/Mark all \d+ checked/);
+  });
+
   it('logged no errors', () => {
     expect(errors).toEqual([]);
   });

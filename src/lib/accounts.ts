@@ -124,3 +124,25 @@ export function setAccountValue(data: VaultData, accountId: string, target: numb
     ],
   };
 }
+
+/**
+ * Reconciling with a statement: the balance counting only entries you've ticked ✓, and how many
+ * aren't ticked yet. When everything on the statement is ticked, this equals the bank's balance.
+ * Balance corrections count as ticked, since you set them to what the bank showed.
+ */
+export function checkedBalance(data: VaultData, accountId: string): { balance: number; unchecked: number } {
+  const a = data.accounts.find((x) => x.id === accountId);
+  let balance = a?.opening ?? 0;
+  let unchecked = 0;
+  const count = (ok: boolean | undefined, v: number) => (ok ? (balance += v) : unchecked++);
+  for (const t of data.transactions) if (t.accountId === accountId) count(t.checked || t.adjustment, t.kind === 'income' ? t.amount : -t.amount);
+  for (const t of data.transfers) {
+    if (t.fromAccountId === accountId) count(t.checked, -t.amount);
+    if (t.toAccountId === accountId) count(t.checked, t.amount);
+  }
+  for (const m of data.moves) {
+    if (m.from === accountId) count(m.checked, -m.amount);
+    if (m.to === accountId) count(m.checked, m.amount);
+  }
+  return { balance, unchecked };
+}

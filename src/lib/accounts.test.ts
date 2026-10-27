@@ -131,3 +131,16 @@ describe('return percentage', () => {
     expect(pct(0, 1_000)).toBe('0.00%');
   });
 });
+
+describe('checked balance (reconciling with a statement)', () => {
+  it('counts only ticked entries, plus corrections', async () => {
+    const { checkedBalance } = await import('./accounts');
+    const v = {
+      ...emptyVault(),
+      accounts: [acc('bank', { opening: 10_000 }), acc('cash', { kind: 'cash' })],
+      transactions: [tx({ accountId: 'bank', amount: 1_000, checked: true }), tx({ accountId: 'bank', amount: 500 }), tx({ accountId: 'bank', kind: 'income', amount: 200, adjustment: true })],
+      moves: [{ id: 'm', from: 'bank', to: 'cash', amount: 2_000, date: '2026-10-01', note: '', checked: true, createdAt: 0 }],
+    };
+    expect(checkedBalance(v, 'bank')).toEqual({ balance: 10_000 - 1_000 + 200 - 2_000, unchecked: 1 });
+  });
+});

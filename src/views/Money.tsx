@@ -1,6 +1,6 @@
-import { Download, FileUp, Search, Wallet } from 'lucide-react';
+import { Check, Download, FileUp, Search, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { activityKey, activityOf, ActivityRow, type Activity } from '../components/rows';
+import { activityKey, activityOf, ActivityRow, isChecked, setChecked, type Activity } from '../components/rows';
 import { download, Empty, Seg } from '../components/ui';
 import { dayLabel, lastMonths, monthLabel } from '../lib/dates';
 import { TRANSFER_LABEL, type Book } from '../lib/types';
@@ -23,6 +23,8 @@ export function Money() {
   const [month, setMonth] = useState('');
   const [category, setCategory] = useState('');
   const [account, setAccount] = useState('');
+  const [tick, setTick] = useState<'' | 'checked' | 'unchecked'>('');
+  const { update } = useVault();
   const [limit, setLimit] = useState(150);
   const accountName = (id?: string) => (id ? data.accounts.find((a) => a.id === id)?.name ?? '' : '');
 
@@ -32,6 +34,8 @@ export function Money() {
     const term = q.trim().toLowerCase();
     return activityOf(data.transactions, data.transfers, data.moves).filter((a) => {
       if (month && !a.date.startsWith(month)) return false;
+      // Value changes and balance corrections aren't on any statement, so they're never ticked.
+      if (tick && (a.kind === 'tx' && a.tx.adjustment ? true : isChecked(a) !== (tick === 'checked'))) return false;
       if (a.kind === 'move') {
         if ((kind !== 'all' && kind !== 'transfer') || category) return false;
         if (account && a.mv.from !== account && a.mv.to !== account) return false;
@@ -56,7 +60,13 @@ export function Money() {
       return `${t.note} ${t.category} ${project} ${accountName(t.accountId)} ${money.full(t.amount)}`.toLowerCase().includes(term);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, q, book, kind, month, category, account, money]);
+  }, [data, q, book, kind, month, category, account, tick, money]);
+
+  const unchecked = rows.filter((a) => !isChecked(a) && !(a.kind === 'tx' && a.tx.adjustment));
+  const markAll = () => {
+    if (!unchecked.length || !window.confirm(`Mark ${unchecked.length} entries as checked against your statement?`)) return;
+    update((d) => unchecked.reduce((acc, a) => setChecked(acc, a, true), d));
+  };
 
   const totals = useMemo(() => {
     let inc = 0;
@@ -122,6 +132,11 @@ export function Money() {
               </option>
             ))}
         </select>
+        <select className="select" value={tick} onChange={(e) => setTick(e.target.value as typeof tick)} aria-label="Checked">
+          <option value="">Checked and not</option>
+          <option value="unchecked">Not checked ✓</option>
+          <option value="checked">Checked ✓</option>
+        </select>
         {data.accounts.length > 0 && (
           <select className="select" value={account} onChange={(e) => setAccount(e.target.value)} aria-label="Account">
             <option value="">All accounts</option>
@@ -143,6 +158,11 @@ export function Money() {
         <button className="btn" onClick={() => nav.open({ type: 'import' })}>
           <FileUp size={15} /> Import
         </button>
+        {tick === 'unchecked' && unchecked.length > 0 && (
+          <button className="btn" onClick={markAll}>
+            <Check size={15} /> Mark all {unchecked.length} checked
+          </button>
+        )}
         <button className="btn" onClick={exportCsv} disabled={!rows.length} title="Export what you see as CSV (not encrypted)">
           <Download size={15} /> CSV
         </button>
@@ -163,7 +183,10 @@ export function Money() {
             </div>
           </div>
           <div>
-            <div className="stat-l">Net · {rows.length} entries</div>
+            <div className="stat-l">
+              Net · {rows.length} entries
+              {unchecked.length > 0 && <span className="faint"> · {unchecked.length} not checked</span>}
+            </div>
             <div className={`stat-v num ${totals.inc - totals.exp >= 0 ? 'up' : 'down'}`} style={{ fontSize: 22 }}>
               {totals.inc - totals.exp >= 0 ? '+' : '−'}
               {money.full(Math.abs(totals.inc - totals.exp))}
