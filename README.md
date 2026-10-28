@@ -25,6 +25,7 @@ If you run a company, your money lives in two places: your pocket and the busine
 
 **Kosh puts it all in one place and understands how the pieces connect:**
 
+- Pay for something in cash, and your cash in hand goes down. Kosh warns you before it would go below zero.
 - Pay a company bill with your personal card, and Kosh knows the company now owes you.
 - Draw a salary, and it counts as your income *and* a company cost. Across both books it cancels out, because it's your own money moving.
 - Tag spending to a client project, and you see the real margin, budget burn and what's left to collect.
@@ -37,7 +38,9 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 
 ### 💸 Money: personal and company, side by side
 - **Two books in one place.** Personal and company income and expenses, with smart categories.
-- **Accounts and cash.** Every bank account, cash in hand, credit card and wallet, for you and the company, each with its details (account number, IFSC, UPI) and a live balance. Record ATM withdrawals, cash deposits and card bill payments as moves between your own accounts, and **update a balance** after counting your cash without disturbing profit and loss.
+- **Accounts and cash.** Every bank account, cash in hand, credit card and wallet, for you and the company, each with its details (account number, IFSC, UPI) and a live balance. Each one is drawn as a card in its own colour, with a chip, the last four digits, the holder and the bank. Record ATM withdrawals, cash deposits and card bill payments as moves between your own accounts, and **update a balance** after counting your cash without disturbing profit and loss.
+- **Cash is a first-class choice.** Every expense and income asks *Paid with* or *Received into*, with Cash first, then your banks, cards and wallets with their balances. It shows what's left after the entry, e.g. "Cash after this: ₹33,750", and warns when an expense would take cash or a bank below zero. If you have no cash account yet, Kosh creates one the first time you pick Cash.
+- **Foreign-currency entries.** Record a $20 or €9.99 charge with its rate and your card's forex fee, and the rupee amount follows.
 - **SIPs and investments.** Add a SIP once (amount, date, the bank account it's debited from). Kosh reminds you, records each instalment on “Done” as savings, not spending, and shows invested vs current value and your return for every fund.
 - **You ↔ Company ledger.** Capital, loans, salary, dividends, repayments and reimbursements, plus a live **"company owes you"** balance.
 - **Cash in each pocket**, from opening balances plus every entry and transfer.
@@ -49,7 +52,8 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Usage-based bills** (AWS, OpenAI, Twilio…) take the real amount when paid, and Kosh warns when one jumps.
 - **Bills in dollars, euros and more.** Enter $20, the rate and your card's forex fee (3.5% + GST by default). Kosh estimates the rupee cost, learns the real rate from each statement charge, and only flags a price rise when the dollar price changes.
 - **Overdue and due-this-week** alerts, plus your monthly and yearly committed spend by type.
-- **One-click "Pay"** records the payment and rolls the bill to its next due date.
+- **Paid from:** choose the card or account a bill is charged to, and paying it takes the money from there.
+- **One-click "Pay"** records the payment and rolls the bill to its next due date. One-time bills close once paid.
 
 ### 🧾 Invoices with GST
 - Professional **tax invoices** with HSN/SAC codes, quantities and per-line GST rates.
@@ -102,10 +106,21 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Breach check** against Have I Been Pwned using k-anonymity. Your passwords never leave the device.
 - Clipboard auto-clears after 20 seconds.
 
-### ✨ Built with care
-- Dark and light themes, keyboard-first, responsive down to phones.
-- Hand-written SVG charts and a single CSS file: no UI kit, no chart library, about 120 KB gzipped.
-- Works offline once loaded.
+### ✨ Design and feel
+- **Dark and light themes** on a soft ambient background, with slightly see-through cards. Switching theme spreads the new colours in a circle from the button.
+- **Tinted summary tiles** whose colour always means the same thing: violet personal, teal company, green money in, rose owed or overdue, gold attention. The Overview tiles show a six-month sparkline and the change on the last 30 days.
+- **Kosh's own calendar** for every date: the same in every browser, themed, with Today and Clear, and full keyboard control.
+- **Motion that explains, not decorates.**
+  - Page titles rise letter by letter, cards arrive in a wave and the big numbers count up.
+  - The highlight glides to whatever you select.
+  - Dialogs drop in and fade out.
+  - It all turns off with your system's *Reduce motion* setting.
+- **Made for phones too.**
+  - A floating tab bar with the add button in the middle.
+  - Dialogs that rise as bottom sheets with the buttons in reach.
+  - Fields that don't make iOS zoom.
+- **Keyboard-first:** `N` for a new entry, `⌘K` for everything, `⌘⇧L` to lock.
+- Hand-written SVG charts and animations on the browser's own Web Animations API. No UI kit, chart library or animation library: about 165 KB gzipped in total. Works offline once loaded.
 
 ## Privacy and security
 
@@ -113,7 +128,7 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 |---|---|
 | Where is my data? | In your browser's IndexedDB: **one AES-256-GCM encrypted vault**, plus each document encrypted separately with the same key. |
 | How is it encrypted? | Your master password goes through **PBKDF2-SHA256 (600,000 rounds)** to make a non-extractable key, held only in memory. |
-| Does anything go to a server? | **No.** A strict Content-Security-Policy blocks all outside hosts. The one exception is the breach check, and only when you click it. |
+| Does anything go to a server? | **No.** A strict Content-Security-Policy blocks all outside hosts except two lookups that run only when you click them: the password breach check, and "Today's rate" for a currency pair (frankfurter.app). |
 | What about my bank statements? | They're read on your device. Nothing is uploaded. |
 | Can you reset my password? | No one can. Download an **encrypted backup** (Settings), which includes your documents, and keep it somewhere safe. |
 
@@ -155,10 +170,10 @@ All maths uses integer minor units (paise/cents), so totals never drift. See [`s
 
 ## Tech
 
-React 18 · TypeScript · Vite · WebCrypto · IndexedDB · Vitest. Three runtime dependencies: React, lucide-react icons, and the Inter font.
+React 18 · TypeScript · Vite · WebCrypto · IndexedDB · Web Animations API · Vitest. Three runtime dependencies: React, lucide-react icons, and the Inter font.
 
 ```bash
-npm test          # crypto, money model, bills, tax, invoices, budgets, import, passwords + a full UI smoke test
+npm test          # 130+ tests: crypto, money model, bills, tax, invoices, budgets, payroll, accounts, FX, import, passwords, motion + a full UI smoke test
 npm run typecheck
 npm run build
 ```
@@ -169,9 +184,14 @@ npm run build
 - [x] Invoices with GST, linked to projects and payments
 - [x] Budgets per category with alerts
 - [x] Encrypted document vault with expiry reminders
+- [x] Staff, payroll and payslips with PF, ESI, PT and TDS
+- [x] Accounts, cash and cards, with cash as a payment choice on every entry
+- [x] SIPs and investments with returns
+- [x] Bills and entries in foreign currency, with forex fees
+- [x] Phone layout and motion
 - [ ] Excel (.xlsx), OFX and PDF statement import
 - [ ] Email invoices, and e-invoicing (IRN / QR) for GST
-- [ ] Multi-currency entries with FX rates
+- [ ] Credit limits on cards, with a spend bar
 - [ ] Optional end-to-end-encrypted sync between devices
 - [ ] Argon2id key derivation
 - [ ] Installable PWA and desktop app
