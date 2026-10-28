@@ -1,6 +1,8 @@
 import { ArrowUpRight, Check, X } from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { canAnimate, EASE } from '../lib/motion';
+import { SlidingPill } from './motion';
 
 export function Modal({
   title,
@@ -22,7 +24,7 @@ export function Modal({
     first?.focus();
     // Only the topmost dialog closes on Escape.
     const onKey = (e: KeyboardEvent) => {
-      const all = document.querySelectorAll('.modal');
+      const all = document.querySelectorAll('.modal:not(.leaving)');
       if (e.key === 'Escape' && all[all.length - 1] === ref.current) onClose();
     };
     window.addEventListener('keydown', onKey);
@@ -31,6 +33,26 @@ export function Modal({
       prev?.focus?.();
     };
   }, [onClose]);
+  // Closing: React removes the dialog at once, so a copy of it fades out in its place.
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    return () => {
+      const scrim = panel?.parentElement;
+      if (!scrim || !canAnimate(scrim)) return;
+      const ghost = scrim.cloneNode(true) as HTMLElement;
+      ghost.classList.add('leaving');
+      ghost.setAttribute('aria-hidden', 'true');
+      ghost.querySelector('.modal')?.classList.add('leaving');
+      document.body.appendChild(ghost);
+      const sheet = window.matchMedia('(max-width: 860px)').matches;
+      ghost.querySelector('.modal')?.animate([{ transform: 'none' }, { transform: sheet ? 'translateY(60px)' : 'translateY(-10px) scale(0.97)', opacity: 0 }], {
+        duration: 200,
+        easing: EASE.in,
+        fill: 'forwards',
+      });
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: 'ease', fill: 'forwards' }).onfinish = () => ghost.remove();
+    };
+  }, []);
   return createPortal(
     <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} ref={ref}>
@@ -71,6 +93,7 @@ export function Seg<T extends string>({
 }) {
   return (
     <div className="seg" role="group" aria-label={label}>
+      <SlidingPill selector="button[aria-pressed='true']" watch={value} className="seg-pill" />
       {options.map((o) => (
         <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>
           {o.label}

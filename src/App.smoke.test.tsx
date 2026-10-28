@@ -71,6 +71,18 @@ describe('app smoke test', () => {
     await click(navButton('Overview'));
   });
 
+  it('page titles are split into letters but read as one title, and selections have a gliding highlight', async () => {
+    await click(navButton('Budgets'));
+    const h1 = container.querySelector('.top h1')!;
+    expect(h1.textContent).toBe('Budgets');
+    expect(h1.getAttribute('aria-label')).toBe('Budgets');
+    expect(h1.querySelectorAll('.ch').length).toBe(7);
+    expect(container.querySelector('.side .nav-pill')).toBeTruthy();
+    expect(container.querySelector('.mobile-nav .tab-pill')).toBeTruthy();
+    await click(navButton('Overview'));
+    expect(container.querySelector('.seg .seg-pill')).toBeTruthy();
+  });
+
   it('the add button in the phone tab bar opens what fits the page', async () => {
     await click(container.querySelector('.mobile-nav .mobile-add'));
     expect(document.querySelector('.modal #tx-form')).toBeTruthy();

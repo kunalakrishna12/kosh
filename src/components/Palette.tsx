@@ -1,5 +1,6 @@
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Banknote, Briefcase, Dices, Landmark, Repeat, TrendingUp, UserPlus, FileText, FileUp, FolderKanban, FolderLock, Gauge, KeyRound, Lock, Receipt, Search, type LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { rise } from '../lib/motion';
 import { createPortal } from 'react-dom';
 import { hostOf } from '../lib/passwords';
 import { NAV_ITEMS, useNav } from '../nav';
@@ -99,6 +100,7 @@ export function Palette({ onClose }: { onClose: () => void }) {
   }, [q, data.secrets, data.projects, data.bills, data.docs, data.invoices, data.accounts, nav, lock, copy, onClose]);
 
   useEffect(() => setSel(0), [q]);
+  useLayoutEffect(() => rise(Array.from(listRef.current?.querySelectorAll('.palette-item') ?? []).slice(0, 8), { y: 6, scale: 1, stagger: 0.02, duration: 0.4 }), []);
   useEffect(() => {
     listRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [sel]);

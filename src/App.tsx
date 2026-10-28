@@ -1,7 +1,9 @@
 import { Lock, Menu, Moon, Plus, Search, Sun } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BillForm, GeneratorModal, ProjectForm, SecretForm, TransferForm, TxForm } from './components/forms';
+import { SlidingPill, SplitTitle } from './components/motion';
 import { Palette } from './components/Palette';
+import { canAnimate, enterPage, reducedMotion, rise, slideIn } from './lib/motion';
 import { addDays, today } from './lib/dates';
 import { prefs } from './lib/storage';
 import type { ThemePref } from './lib/types';
@@ -56,17 +58,36 @@ function applyTheme() {
 applyTheme();
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
+/** Switch theme with the new colours spreading out in a circle from the button that was pressed. */
+function revealTheme(change: () => void, from?: HTMLElement) {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };
+  if (!doc.startViewTransition || reducedMotion()) return change();
+  const r = from?.getBoundingClientRect();
+  const x = r ? r.left + r.width / 2 : innerWidth - 40;
+  const y = r ? r.top + r.height / 2 : 40;
+  const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+  doc
+    .startViewTransition(change)
+    .ready.then(() =>
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 500, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' },
+      ),
+    )
+    .catch(() => {});
+}
+
 /** Theme is shared app-wide (lock screen, sidebar, settings) and remembered outside the vault. */
-export function useTheme(): [ThemePref, (t: ThemePref) => void] {
+export function useTheme(): [ThemePref, (t: ThemePref, from?: HTMLElement) => void] {
   const [theme, set] = useState(currentTheme);
   useEffect(() => {
     themeListeners.add(set);
     return () => void themeListeners.delete(set);
   }, []);
-  const setTheme = useCallback((t: ThemePref) => {
+  const setTheme = useCallback((t: ThemePref, from?: HTMLElement) => {
     currentTheme = t;
     prefs.set('theme', t);
-    applyTheme();
+    revealTheme(applyTheme, from);
     themeListeners.forEach((l) => l(t));
   }, []);
   return [theme, setTheme];
@@ -116,7 +137,7 @@ export default function App() {
   return <Shell theme={theme} setTheme={setTheme} />;
 }
 
-function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref) => void }) {
+function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref, from?: HTMLElement) => void }) {
   const { data, lock, demo, saveState } = useVault();
   const [view, setView] = useState<View>(() => (location.hash.slice(1) as View) in TITLES ? (location.hash.slice(1) as View) : 'overview');
   const [focusProject, setFocusProject] = useState<string | null>(null);
@@ -189,6 +210,19 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
     settings: SettingsView,
   }[view];
   const [more, setMore] = useState(false);
+  const sideRef = useRef<HTMLElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // Each new page: cards rise in a wave, rows follow, big numbers count up.
+  useLayoutEffect(() => enterPage(document.querySelector<HTMLElement>('.page')), [view]);
+  // The sidebar slides in once, when the vault opens.
+  useLayoutEffect(() => {
+    slideIn(Array.from(sideRef.current?.querySelectorAll('.brand, .nav-label, .nav-item, .side-foot') ?? []));
+    const pill = sideRef.current?.querySelector('.nav-pill');
+    if (canAnimate(pill)) pill.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 150, fill: 'backwards' });
+  }, []);
+  useLayoutEffect(() => {
+    if (more) rise(Array.from(sheetRef.current?.children ?? []), { y: 14, scale: 1, stagger: 0.02, duration: 0.5 });
+  }, [more]);
   const fileRef = useRef<HTMLInputElement>(null);
   const primary = () => {
     const p = PRIMARY[view];
@@ -199,7 +233,8 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
   return (
     <NavCtx.Provider value={nav}>
       <div className="shell">
-        <aside className="side">
+        <aside className="side" ref={sideRef}>
+          <SlidingPill selector=".nav-item[aria-current='page']" watch={view} className="nav-pill" />
           <div className="brand">
             <span className="brand-mark">
               <BrandMark />
@@ -228,7 +263,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
               <button className="btn ghost sm" style={{ flex: 1 }} onClick={lock}>
                 <Lock size={14} /> Lock
               </button>
-              <button className="icon-btn" onClick={() => setTheme(dark ? 'light' : 'dark')} aria-label="Toggle theme" title={`Theme: ${theme}`}>
+              <button className="icon-btn" onClick={(e) => setTheme(dark ? 'light' : 'dark', e.currentTarget)} aria-label="Toggle theme" title={`Theme: ${theme}`}>
                 {dark ? <Sun size={16} /> : <Moon size={16} />}
               </button>
             </div>
@@ -246,7 +281,9 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
             <span className="brand-mark top-mark" aria-hidden>
               <BrandMark size={17} />
             </span>
-            <h1>{TITLES[view]}</h1>
+            <h1 key={view} aria-label={TITLES[view]}>
+              <SplitTitle text={TITLES[view]} />
+            </h1>
             <div className="grow" />
             <button className="search-btn" onClick={() => setPalette(true)} aria-label="Search and commands">
               <Search size={15} />
@@ -265,6 +302,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
         </main>
 
         <nav className="mobile-nav" aria-label="Sections">
+          <SlidingPill selector="button[aria-current='page']" watch={`${view}${more}`} className="tab-pill" />
           {NAV_ITEMS.filter((n) => n.mobile)
             .slice(0, 2)
             .map((n) => (
@@ -303,7 +341,7 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
       {dialog?.type === 'upload' && <UploadForm files={dialog.files} defaults={dialog.defaults} onClose={close} />}
       {more && (
         <div className="scrim sheet-scrim" onMouseDown={(e) => e.target === e.currentTarget && setMore(false)}>
-          <div className="sheet" role="dialog" aria-label="All sections">
+          <div className="sheet" role="dialog" aria-label="All sections" ref={sheetRef}>
             {NAV_ITEMS.map((n) => (
               <button key={n.view} aria-current={view === n.view ? 'page' : undefined} onClick={() => (setMore(false), go(n.view))}>
                 <n.icon size={20} />

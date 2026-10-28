@@ -40,6 +40,8 @@
   --shadow: 0 1px 0 var(--hi) inset, 0 20px 50px -24px rgba(0, 0, 0, 0.7);
   --shadow-pop: 0 1px 0 var(--hi) inset, 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--line-2);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-back: cubic-bezier(0.34, 1.45, 0.64, 1);
   /* Soft colour fields behind the page; cards are slightly see-through so they pick it up. */
   --field-1: rgba(240, 195, 106, 0.07);
   --field-2: rgba(155, 140, 255, 0.07);
@@ -360,7 +362,6 @@ kbd {
   padding: 28px 32px 64px;
   max-width: 1320px;
   margin: 0 auto;
-  animation: rise 0.45s var(--ease) both;
 }
 .demo-bar {
   display: flex;
@@ -389,6 +390,17 @@ kbd {
     transform: translateY(6px);
   }
 }
+@keyframes drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+}
+@keyframes letter-up {
+  from {
+    transform: translateY(110%) rotate(6deg);
+  }
+}
 @keyframes fade {
   from {
     opacity: 0;
@@ -405,6 +417,7 @@ kbd {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
   }
 }
@@ -1416,7 +1429,7 @@ input[type='checkbox']:focus-visible {
   background: var(--surface);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-pop);
-  animation: pop 0.28s var(--ease) both;
+  animation: drop-in 0.45s var(--ease-back) both;
 }
 .modal.wide {
   width: min(720px, 100%);
@@ -1455,7 +1468,7 @@ input[type='checkbox']:focus-visible {
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-pop);
   overflow: hidden;
-  animation: pop 0.22s var(--ease) both;
+  animation: drop-in 0.42s var(--ease-back) both;
 }
 .palette-in {
   display: flex;
@@ -3289,4 +3302,114 @@ button.fund-name:hover span {
     transform: translateY(48px);
     opacity: 0;
   }
+}
+
+/* ───────────────────────── Motion ───────────────────────── */
+
+/* Page titles: letters rise from under a line, one after another. */
+.split .word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.1em;
+  margin-bottom: -0.1em;
+}
+.split .ch {
+  display: inline-block;
+  animation: letter-up 0.8s var(--ease-out) backwards;
+  animation-delay: calc(var(--i) * 18ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .split .ch {
+    animation: none;
+  }
+}
+
+/* The highlight that glides to the selected item. */
+.slide-pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.5s var(--ease-out),
+    width 0.5s var(--ease-out),
+    height 0.5s var(--ease-out),
+    opacity 0.2s;
+}
+.side {
+  position: relative;
+}
+.nav-item {
+  position: relative;
+  z-index: 1;
+}
+.nav-item[aria-current='page'] {
+  background: transparent;
+  box-shadow: none;
+}
+.nav-pill {
+  border-radius: 9px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line), 0 1px 0 var(--hi) inset;
+}
+.seg {
+  position: relative;
+}
+.seg button {
+  position: relative;
+  z-index: 1;
+}
+.seg button[aria-pressed='true'],
+:root[data-theme='light'] .seg button[aria-pressed='true'] {
+  background: transparent;
+  box-shadow: none;
+}
+.seg-pill {
+  border-radius: 7px;
+  background: var(--surface-3);
+  box-shadow: 0 1px 0 var(--hi) inset, 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+:root[data-theme='light'] .seg-pill {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(20, 18, 12, 0.1), 0 0 0 1px var(--line);
+}
+.mobile-nav button {
+  position: relative;
+  z-index: 1;
+}
+.mobile-nav button[aria-current='page'] {
+  background: transparent !important;
+}
+.tab-pill {
+  border-radius: 16px;
+  background: var(--gold-soft);
+}
+
+/* Cards lift a little under the pointer. */
+.kpi {
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+}
+@media (hover: hover) {
+  .kpi:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* A closing dialog's stand-in: seen, never touched. */
+.scrim.leaving {
+  pointer-events: none;
+  animation: none;
+}
+.scrim.leaving .modal {
+  animation: none;
+}
+
+/* Theme switch: the new colours spread in a circle (see revealTheme). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
