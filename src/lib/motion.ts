@@ -122,7 +122,53 @@ export function enterPage(page: HTMLElement | null) {
     .filter((el) => el.getBoundingClientRect().top < fold)
     .slice(0, 14);
   rise(rows, { y: 10, scale: 1, stagger: 0.03, delay: 0.18, duration: 0.55 });
+  fillIn(Array.from(page.querySelectorAll<HTMLElement>('.bar > i, .hero-bar > i')).filter((el) => el.getBoundingClientRect().top < fold).slice(0, 24));
   page.querySelectorAll('.hero-total, .pocket-v, .stat-v').forEach((el, i) => {
     if (el.getBoundingClientRect().top < fold) countUp(el, { delay: 0.05 + Math.min(i, 8) * 0.04 });
+  });
+}
+
+/** A chart line draws itself from left to right; its shaded area fades in behind it. */
+export function drawIn(lines: Element[], areas: Element[], { delay = 0.2, duration = 1.2 } = {}) {
+  lines.forEach((el) => {
+    if (!canAnimate(el)) return;
+    el.animate([{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], {
+      duration: duration * 1000,
+      delay: delay * 1000,
+      easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
+      fill: 'backwards',
+    });
+  });
+  areas.forEach((el) => {
+    if (!canAnimate(el)) return;
+    el.animate([{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }, { opacity: 1, clipPath: 'inset(0 0 0 0)' }], {
+      duration: (duration + 0.1) * 1000,
+      delay: (delay + 0.15) * 1000,
+      easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
+      fill: 'backwards',
+    });
+  });
+}
+
+/** Bars grow up from the baseline one after another. */
+export function growUp(bars: Element[], { delay = 0.15, stagger = 0.04 } = {}) {
+  bars.forEach((el, i) => {
+    if (!canAnimate(el)) return;
+    el.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], {
+      duration: 1000,
+      delay: (delay + i * stagger) * 1000,
+      easing: EASE.out,
+      fill: 'backwards',
+    });
+  });
+}
+
+/** Progress bars fill from empty to where they are. */
+export function fillIn(fills: Element[], { delay = 0.25, stagger = 0.03 } = {}) {
+  fills.forEach((el, i) => {
+    if (!canAnimate(el)) return;
+    const width = el.style.width;
+    if (!width) return;
+    el.animate([{ width: '0%' }, { width }], { duration: 900, delay: (delay + i * stagger) * 1000, easing: EASE.out, fill: 'backwards' });
   });
 }

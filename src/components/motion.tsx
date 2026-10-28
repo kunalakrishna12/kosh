@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, type CSSProperties } from 'react';
-import { reducedMotion } from '../lib/motion';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { canAnimate, reducedMotion } from '../lib/motion';
 
 /**
  * A heading whose letters rise into place, word by word, each word masked so the
@@ -67,4 +67,43 @@ export function SlidingPill({ selector, watch, className = '' }: { selector: str
     return () => ro.disconnect();
   }, [selector, watch]);
   return <span ref={ref} className={`slide-pill ${className}`} aria-hidden />;
+}
+
+/** Smooth in, smooth out: for morphing a chart from its old shape to its new one. */
+const easeInOut = (t: number) => (t < 0.5 ? 16 * t ** 5 : 1 - (-2 * t + 2) ** 5 / 2);
+
+/**
+ * Numbers that glide to new values instead of jumping: give it the target values,
+ * render what it returns. NaN passes through untouched (a gap in a chart).
+ * The first render shows the target at once; charts draw themselves in separately.
+ */
+export function useTween(target: number[], duration = 850): number[] {
+  const [shown, setShown] = useState(target);
+  const from = useRef(target);
+  const frame = useRef(0);
+  const sig = target.join(',');
+  useEffect(() => {
+    const prev = from.current;
+    if (prev.join(',') === sig) return;
+    cancelAnimationFrame(frame.current);
+    if (prev.length !== target.length || !canAnimate(document.body)) {
+      from.current = target;
+      setShown(target);
+      return;
+    }
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const k = easeInOut(t);
+      const v = target.map((x, i) => (Number.isFinite(prev[i]) && Number.isFinite(x) ? prev[i] + (x - prev[i]) * k : x));
+      from.current = v;
+      setShown(v);
+      if (t < 1) frame.current = requestAnimationFrame(tick);
+    };
+    frame.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame.current);
+    // `sig` stands for `target`'s contents; a new array with the same numbers is no change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+  return shown.length === target.length ? shown : target;
 }

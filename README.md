@@ -112,6 +112,8 @@ All of it is encrypted on your device. **No account, no server, no tracking.**
 - **Kosh's own calendar** for every date: the same in every browser, themed, with Today and Clear, and full keyboard control.
 - **Motion that explains, not decorates.**
   - Page titles rise letter by letter, cards arrive in a wave and the big numbers count up.
+  - Charts draw themselves in: lines from left to right, bars up from the baseline, donuts and rings sweeping round, progress bars filling.
+  - Switch Company / Personal and the chart morphs into the new data.
   - The highlight glides to whatever you select.
   - Dialogs drop in and fade out.
   - It all turns off with your system's *Reduce motion* setting.
