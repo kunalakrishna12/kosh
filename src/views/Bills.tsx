@@ -85,22 +85,22 @@ export function Bills() {
   return (
     <>
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">Company bills a month</div>
           <div className="stat-v num">{money.compact(summary.monthly.company)}</div>
           <div className="stat-d">{money.compact(summary.monthly.company * 12)} a year</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-violet">
           <div className="stat-l">Personal bills a month</div>
           <div className="stat-v num">{money.compact(summary.monthly.personal)}</div>
           <div className="stat-d">{money.compact(summary.monthly.personal * 12)} a year</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-gold">
           <div className="stat-l">Due in the next 30 days</div>
           <div className="stat-v num">{money.compact(summary.dueNext30)}</div>
           <div className="stat-d">{summary.soon.length} due this week</div>
         </div>
-        <div className="card" style={{ borderColor: summary.overdue.length ? 'color-mix(in srgb, var(--expense) 40%, transparent)' : undefined }}>
+        <div className="card kpi t-rose" style={{ borderColor: summary.overdue.length ? 'color-mix(in srgb, var(--expense) 40%, transparent)' : undefined }}>
           <div className="stat-l">Overdue</div>
           <div className={`stat-v num ${summary.overdue.length ? 'down' : ''}`}>{summary.overdue.length ? money.compact(overdueTotal) : 'None'}</div>
           <div className="stat-d">{summary.overdue.length ? `${summary.overdue.length} bill${summary.overdue.length > 1 ? 's' : ''} waiting` : 'All caught up'}</div>

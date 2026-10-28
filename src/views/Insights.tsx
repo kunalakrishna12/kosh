@@ -150,24 +150,24 @@ export function Insights() {
       </div>
 
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">Company margin</div>
           <div className={`stat-v num ${margin !== null && margin < 0 ? 'down' : ''}`}>{margin === null ? '—' : `${Math.round(margin * 100)}%`}</div>
           <div className="stat-d">
             {money.compact(co.income - co.expense)} profit on {money.compact(co.income)}
           </div>
         </div>
-        <div className="card">
+        <div className="card kpi t-gold">
           <div className="stat-l">Runway</div>
           <div className="stat-v num">{rw.months === null ? 'Profitable' : `${rw.months.toFixed(1)} months`}</div>
           <div className="stat-d">{rw.months === null ? `+${money.compact(-rw.burn)} a month` : `${money.compact(rw.burn)} net burn a month`}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-violet">
           <div className="stat-l">Personal savings rate</div>
           <div className="stat-v num">{sr === null ? '—' : `${Math.round(sr * 100)}%`}</div>
           <div className="stat-d">{money.compact(pe.income - pe.expense)} kept</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-sky">
           <div className="stat-l">Avg personal spend</div>
           <div className="stat-v num">{money.compact(Math.round(pe.expense / months))}</div>
           <div className="stat-d">per month</div>

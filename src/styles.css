@@ -40,6 +40,13 @@
   --shadow: 0 1px 0 var(--hi) inset, 0 20px 50px -24px rgba(0, 0, 0, 0.7);
   --shadow-pop: 0 1px 0 var(--hi) inset, 0 30px 80px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--line-2);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Soft colour fields behind the page; cards are slightly see-through so they pick it up. */
+  --field-1: rgba(240, 195, 106, 0.07);
+  --field-2: rgba(155, 140, 255, 0.07);
+  --field-3: rgba(63, 217, 193, 0.05);
+  --card-bg: color-mix(in srgb, var(--surface) 86%, transparent);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --tile-mix: 12%;
   color-scheme: dark;
 }
 
@@ -72,6 +79,12 @@
   --gold-soft: rgba(185, 124, 18, 0.1);
   --shadow: 0 1px 2px rgba(20, 18, 12, 0.04), 0 12px 32px -18px rgba(20, 18, 12, 0.18);
   --shadow-pop: 0 30px 80px -20px rgba(20, 18, 12, 0.3), 0 0 0 1px var(--line-2);
+  --field-1: rgba(214, 160, 60, 0.16);
+  --field-2: rgba(130, 112, 240, 0.1);
+  --field-3: rgba(13, 159, 136, 0.1);
+  --card-bg: color-mix(in srgb, var(--surface) 78%, transparent);
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --tile-mix: 14%;
   color-scheme: light;
 }
 
@@ -109,6 +122,17 @@ button {
 }
 a {
   color: inherit;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 50% at 6% 0%, var(--field-1), transparent 70%),
+    radial-gradient(45% 45% at 98% 8%, var(--field-2), transparent 70%),
+    radial-gradient(40% 45% at 80% 102%, var(--field-3), transparent 70%);
 }
 ::selection {
   background: var(--gold-soft);
@@ -171,7 +195,7 @@ a {
   gap: 4px;
   padding: 18px 14px;
   border-right: 1px solid var(--line);
-  background: var(--bg-2);
+  background: color-mix(in srgb, var(--bg-2) 70%, transparent);
   overflow-y: auto;
 }
 .brand {
@@ -301,6 +325,9 @@ a {
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+.top-mark {
+  display: none;
+}
 .top .grow {
   flex: 1;
 }
@@ -426,10 +453,10 @@ kbd {
 
 .card {
   position: relative;
-  background: var(--surface);
+  background: var(--card-bg);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--rim), var(--shadow);
   padding: 20px;
   min-width: 0;
 }
@@ -529,6 +556,92 @@ kbd {
   height: 8px;
   border-radius: 3px;
   flex: none;
+}
+
+/* Corner link: the round arrow that opens a card's full page */
+.corner {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--hi);
+  color: var(--text-2);
+  transition: background 0.15s, color 0.15s, transform 0.2s var(--ease);
+}
+.corner:hover {
+  color: var(--gold);
+  background: var(--gold-soft);
+  transform: translate(1px, -1px);
+}
+
+/* KPI tiles: a summary card tinted by what it measures */
+.kpi {
+  --tone: var(--gold);
+  display: flex;
+  flex-direction: column;
+  min-height: 128px;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--tone) 16%, var(--line));
+  background:
+    radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--tone) 14%, transparent), transparent 65%),
+    color-mix(in srgb, var(--tone) var(--tile-mix), var(--surface));
+}
+.t-gold {
+  --tone: var(--gold);
+}
+.t-teal {
+  --tone: var(--company);
+}
+.t-violet {
+  --tone: var(--personal);
+}
+.t-green {
+  --tone: var(--income);
+}
+.t-rose {
+  --tone: var(--expense);
+}
+.t-sky {
+  --tone: var(--info);
+}
+.kpi .stat-l {
+  font-weight: 550;
+}
+.kpi .stat-l > svg {
+  color: var(--tone);
+}
+.kpi-ico {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 18%, transparent);
+}
+.kpi > .stat-d {
+  margin-top: auto;
+  padding-top: 8px;
+}
+.kpi-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.kpi-foot .stat-d {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.kpi-spark {
+  flex: none;
+  width: 84px;
 }
 
 /* Stat */
@@ -2640,6 +2753,9 @@ button.fund-name:hover span {
 }
 
 @media print {
+  body::before {
+    display: none;
+  }
   :root {
     --bg: #fff;
     --surface: #fff;
@@ -2737,33 +2853,132 @@ button.fund-name:hover span {
   .side {
     display: none;
   }
+  /* A floating tab bar, lifted off the bottom edge, with the add button in the middle. */
   .mobile-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    left: 10px;
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
     z-index: 20;
-    justify-content: space-around;
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--bg-2) 92%, transparent);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-top: 1px solid var(--line);
+    padding: 6px;
+    border-radius: 22px;
+    border: 1px solid var(--line-2);
+    background: color-mix(in srgb, var(--surface) 86%, transparent);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+    box-shadow: var(--rim), var(--shadow-pop);
   }
   .mobile-nav button {
     display: grid;
     justify-items: center;
-    gap: 2px;
+    align-content: center;
+    gap: 3px;
+    height: 52px;
     border: 0;
+    border-radius: 16px;
     background: none;
     color: var(--text-3);
     font-size: 10.5px;
-    padding: 6px 4px;
-    min-width: 52px;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
   }
   .mobile-nav button[aria-current='page'] {
     color: var(--gold);
+    background: var(--gold-soft);
+  }
+  .mobile-nav .mobile-add {
+    justify-self: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    color: var(--gold-ink);
+    background: linear-gradient(180deg, var(--gold), var(--gold-2));
+    box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--gold) 70%, transparent);
+  }
+  .mobile-nav .mobile-add:active {
+    transform: scale(0.94);
+  }
+  .top-mark {
+    display: grid;
+    width: 32px;
+    height: 32px;
+  }
+  .top h1 {
+    font-size: 17px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .top > .btn.primary {
+    display: none;
+  }
+  .toasts {
+    bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+
+  /* Tighter cards and tiles */
+  .grid {
+    gap: 12px;
+  }
+  .mt {
+    margin-top: 12px;
+  }
+  .card {
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .card.flush {
+    padding: 0;
+  }
+  .card-h {
+    flex-wrap: wrap;
+  }
+  .kpi {
+    min-height: 112px;
+    padding: 14px;
+  }
+  .kpi .stat-v {
+    font-size: 20px;
+  }
+  .kpi .stat-l {
+    font-size: 12px;
+  }
+  .kpi-foot {
+    flex-wrap: wrap;
+  }
+  .kpi-spark {
+    width: 100%;
+  }
+  .seg {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg::-webkit-scrollbar {
+    display: none;
+  }
+  .pockets {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .pocket {
+    padding: 12px;
+  }
+  .pocket-v {
+    font-size: 18px;
+  }
+
+  /* iOS zooms into any field under 16px; keep them at 16 so it doesn't. */
+  .input,
+  .select,
+  .textarea,
+  .palette-in input {
+    font-size: 16px;
   }
   .top {
     padding: 12px 16px;
@@ -2814,10 +3029,6 @@ button.fund-name:hover span {
   .paper-table td:nth-child(6) {
     display: none;
   }
-  .mobile-nav button {
-    min-width: 0;
-    flex: 1;
-  }
   .fund-row {
     grid-template-columns: minmax(0, 1fr) 84px 80px 28px;
   }
@@ -2826,7 +3037,7 @@ button.fund-name:hover span {
   }
 
   .page {
-    padding: 20px 16px 96px;
+    padding: 16px 14px calc(100px + env(safe-area-inset-bottom));
   }
   .g-2,
   .g-3,
@@ -2894,5 +3105,56 @@ button.fund-name:hover span {
   .health {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+}
+
+/* On a phone, dialogs rise from the bottom as sheets, with the buttons always in reach. */
+@media screen and (max-width: 860px) {
+  .scrim:has(> .modal) {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .modal,
+  .modal.wide {
+    width: 100%;
+    max-height: 92dvh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 24px 24px 0 0;
+    animation: sheet-up 0.32s var(--ease) both;
+  }
+  .modal::before {
+    content: '';
+    align-self: center;
+    flex: none;
+    width: 38px;
+    height: 5px;
+    margin-top: 8px;
+    border-radius: 99px;
+    background: var(--line-2);
+  }
+  .modal-h {
+    padding: 10px 16px 0;
+  }
+  .modal-b {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px;
+  }
+  .modal-f {
+    flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .modal-f .right {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(48px);
+    opacity: 0;
   }
 }

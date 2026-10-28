@@ -10,7 +10,7 @@ export const NAV_ITEMS: { view: View; label: string; icon: LucideIcon; group: (t
   { view: 'overview', label: 'Overview', icon: LayoutGrid, group: 'Money', mobile: 'Home' },
   { view: 'money', label: 'Transactions', icon: Wallet, group: 'Money', mobile: 'Money' },
   { view: 'accounts', label: 'Accounts & cash', icon: Landmark, group: 'Money', mobile: 'Accounts' },
-  { view: 'bills', label: 'Bills', icon: Receipt, group: 'Money', mobile: 'Bills' },
+  { view: 'bills', label: 'Bills', icon: Receipt, group: 'Money' },
   { view: 'invoices', label: 'Invoices', icon: FileText, group: 'Money' },
   { view: 'staff', label: 'Staff & payroll', icon: Users, group: 'Money' },
   { view: 'projects', label: 'Projects', icon: FolderKanban, group: 'Money' },

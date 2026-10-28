@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react';
+import { ArrowUpRight, Check, X } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -77,6 +77,15 @@ export function Seg<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/** The round arrow in a card's corner that opens the full page for that card. */
+export function Corner({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className="corner" onClick={onClick} aria-label={label} title={label}>
+      <ArrowUpRight size={16} />
+    </button>
   );
 }
 

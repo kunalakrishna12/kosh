@@ -1,5 +1,5 @@
 import { Lock, Menu, Moon, Plus, Search, Sun } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BillForm, GeneratorModal, ProjectForm, SecretForm, TransferForm, TxForm } from './components/forms';
 import { Palette } from './components/Palette';
 import { addDays, today } from './lib/dates';
@@ -25,16 +25,18 @@ import { SettingsView } from './views/Settings';
 import { Vault } from './views/Vault';
 
 export function BrandMark({ size = 18 }: { size?: number }) {
+  // Each mark needs its own gradient id: if it shared one with a hidden copy, it would render blank.
+  const id = `km${useId().replace(/:/g, '')}`;
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
       <defs>
-        <linearGradient id="km" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#f5d48a" />
           <stop offset="1" stopColor="#d99a2b" />
         </linearGradient>
       </defs>
-      <path d="M14 10v44M14 32l22-22M22 24l20 30" stroke="url(#km)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <circle cx="48" cy="12" r="5" fill="url(#km)" />
+      <path d="M14 10v44M14 32l22-22M22 24l20 30" stroke={`url(#${id})`} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="48" cy="12" r="5" fill={`url(#${id})`} />
     </svg>
   );
 }
@@ -241,6 +243,9 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
             </div>
           )}
           <header className="top">
+            <span className="brand-mark top-mark" aria-hidden>
+              <BrandMark size={17} />
+            </span>
             <h1>{TITLES[view]}</h1>
             <div className="grow" />
             <button className="search-btn" onClick={() => setPalette(true)} aria-label="Search and commands">
@@ -260,12 +265,25 @@ function Shell({ theme, setTheme }: { theme: ThemePref; setTheme: (t: ThemePref)
         </main>
 
         <nav className="mobile-nav" aria-label="Sections">
-          {NAV_ITEMS.filter((n) => n.mobile).map((n) => (
-            <button key={n.view} aria-current={view === n.view ? 'page' : undefined} onClick={() => go(n.view)}>
-              <n.icon size={20} />
-              {n.mobile}
-            </button>
-          ))}
+          {NAV_ITEMS.filter((n) => n.mobile)
+            .slice(0, 2)
+            .map((n) => (
+              <button key={n.view} aria-current={view === n.view ? 'page' : undefined} onClick={() => go(n.view)}>
+                <n.icon size={20} />
+                {n.mobile}
+              </button>
+            ))}
+          <button className="mobile-add" onClick={primary} aria-label={`New ${PRIMARY[view].label.toLowerCase()}`}>
+            <Plus size={22} />
+          </button>
+          {NAV_ITEMS.filter((n) => n.mobile)
+            .slice(2)
+            .map((n) => (
+              <button key={n.view} aria-current={view === n.view ? 'page' : undefined} onClick={() => go(n.view)}>
+                <n.icon size={20} />
+                {n.mobile}
+              </button>
+            ))}
           <button aria-current={NAV_ITEMS.some((n) => !n.mobile && n.view === view) ? 'page' : undefined} onClick={() => setMore(true)}>
             <Menu size={20} />
             More

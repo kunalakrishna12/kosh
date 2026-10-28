@@ -91,7 +91,7 @@ export function StaffView() {
   return (
     <>
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-sky">
           <div className="stat-l">On the team</div>
           <div className="stat-v num">{active.length}</div>
           <div className="stat-d">
@@ -99,17 +99,17 @@ export function StaffView() {
             {active.filter((s) => s.type === 'contractor').length} contractors
           </div>
         </div>
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">Monthly payroll cost</div>
           <div className="stat-v num">{money.compact(monthlyTotal)}</div>
           <div className="stat-d">pay plus employer PF and ESI</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-green">
           <div className="stat-l">Paid in {fy.label.replace(' to date', '')}</div>
           <div className="stat-v num">{money.compact(paidFy)}</div>
           <div className="stat-d">full cost to the company</div>
         </div>
-        <div className="card" style={{ borderColor: thisMonth.status !== 'paid' ? 'color-mix(in srgb, var(--gold) 40%, transparent)' : undefined }}>
+        <div className="card kpi t-gold" style={{ borderColor: thisMonth.status !== 'paid' ? 'color-mix(in srgb, var(--gold) 40%, transparent)' : undefined }}>
           <div className="stat-l">{monthLabel(month, true)} payroll</div>
           <div className="row between" style={{ marginTop: 8 }}>
             <span className={`pill ${STATUS[thisMonth.status][1]}`}>{STATUS[thisMonth.status][0]}</span>

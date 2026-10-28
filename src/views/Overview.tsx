@@ -1,8 +1,8 @@
-import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Info, KeyRound, Receipt, TrendingUp, User, Wallet } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { AlertTriangle, ArrowRight, Briefcase, CheckCircle2, Hourglass, Info, KeyRound, Receipt, TrendingUp, User, Wallet } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { AreaChart, Ring, Sparkline } from '../components/charts';
 import { activityKey, activityOf, ActivityRow } from '../components/rows';
-import { Bar, Empty, Seg } from '../components/ui';
+import { Bar, Corner, Empty, Seg } from '../components/ui';
 import { balances, flow, insights, monthly, projectStats, runway, savingsRate, type Insight } from '../lib/analytics';
 import { addDays, monthLabel, today } from '../lib/dates';
 import { activeAccounts, investmentTotals, masked, sipsDue } from '../lib/accounts';
@@ -37,6 +37,25 @@ function Delta({ now, before, invert }: { now: number; before: number; invert?: 
   );
 }
 
+/** A tinted summary tile: what it is, the number, how it moved, and its last six months. */
+function Tile({ tone, icon, label, value, trend, color, children }: { tone: string; icon: ReactNode; label: string; value: string; trend: number[]; color: string; children: ReactNode }) {
+  return (
+    <div className={`card kpi t-${tone}`}>
+      <div className="stat-l">
+        <span className="kpi-ico">{icon}</span>
+        {label}
+      </div>
+      <div className="stat-v num">{value}</div>
+      <div className="kpi-foot">
+        <span className="stat-d">{children}</span>
+        <span className="kpi-spark">
+          <Sparkline values={trend} color={color} height={28} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function Overview() {
   const { data, money } = useVault();
   const nav = useNav();
@@ -45,6 +64,7 @@ export function Overview() {
   const t = today();
   const b = useMemo(() => balances(data), [data]);
   const series = useMemo(() => monthly(data, 12), [data]);
+  const last6 = series.slice(-6);
   const last30 = { from: addDays(t, -29), to: t };
   const prev30 = { from: addDays(t, -59), to: addDays(t, -30) };
   const co = flow(data, 'company', last30.from, last30.to);
@@ -167,41 +187,26 @@ export function Overview() {
       ) : (
         <>
           <div className="grid g-4 mt">
-            <div className="card">
-              <div className="stat-l">
-                <Briefcase size={14} /> {company} revenue
-              </div>
-              <div className="stat-v num">{money.compact(co.income)}</div>
-              <div className="stat-d">
-                <Delta now={co.income} before={coPrev.income} /> last 30 days
-              </div>
-            </div>
-            <div className="card">
-              <div className="stat-l">
-                <Briefcase size={14} /> {company} spend
-              </div>
-              <div className="stat-v num">{money.compact(co.expense)}</div>
-              <div className="stat-d">
-                <Delta now={co.expense} before={coPrev.expense} invert /> last 30 days
-              </div>
-            </div>
-            <div className="card">
-              <div className="stat-l">
-                <User size={14} /> Personal spend
-              </div>
-              <div className="stat-v num">{money.compact(pe.expense)}</div>
-              <div className="stat-d">
-                <Delta now={pe.expense} before={pePrev.expense} invert /> last 30 days
-              </div>
-            </div>
-            <div className="card">
-              <div className="stat-l">{rw.months === null ? 'Company is profitable' : 'Company runway'}</div>
-              <div className="stat-v num">{rw.months === null ? `+${money.compact(-rw.burn)}` : `${rw.months.toFixed(1)} mo`}</div>
-              <div className="stat-d">
-                {rw.months === null ? 'avg monthly surplus' : `burning ${money.compact(rw.burn)}/mo`}
-                {sr !== null && ` · you save ${Math.round(sr * 100)}%`}
-              </div>
-            </div>
+            <Tile tone="green" icon={<Briefcase size={14} />} label={`${company} revenue`} value={money.compact(co.income)} trend={last6.map((p) => p.company.income)} color="var(--income)">
+              <Delta now={co.income} before={coPrev.income} /> 30 days
+            </Tile>
+            <Tile tone="teal" icon={<Briefcase size={14} />} label={`${company} spend`} value={money.compact(co.expense)} trend={last6.map((p) => p.company.expense)} color="var(--company)">
+              <Delta now={co.expense} before={coPrev.expense} invert /> 30 days
+            </Tile>
+            <Tile tone="violet" icon={<User size={14} />} label="Personal spend" value={money.compact(pe.expense)} trend={last6.map((p) => p.personal.expense)} color="var(--personal)">
+              <Delta now={pe.expense} before={pePrev.expense} invert /> 30 days
+            </Tile>
+            <Tile
+              tone="gold"
+              icon={<Hourglass size={14} />}
+              label={rw.months === null ? 'Company is profitable' : 'Company runway'}
+              value={rw.months === null ? `+${money.compact(-rw.burn)}` : `${rw.months.toFixed(1)} mo`}
+              trend={last6.map((p) => p.company.income - p.company.expense)}
+              color="var(--gold)"
+            >
+              {rw.months === null ? 'avg surplus a month' : `burning ${money.compact(rw.burn)}/mo`}
+              {sr !== null && ` · you save ${Math.round(sr * 100)}%`}
+            </Tile>
           </div>
 
           <div className="grid g-main mt">
@@ -235,9 +240,7 @@ export function Overview() {
             <div className="card">
               <div className="card-h">
                 <h2>What to know</h2>
-                <button className="btn ghost sm" onClick={() => nav.go('insights')}>
-                  All insights <ArrowRight size={13} />
-                </button>
+                <Corner label="All insights" onClick={() => nav.go('insights')} />
               </div>
               {notes.slice(0, 4).map((n, i) => (
                 <div key={i} className="insight">
@@ -256,9 +259,7 @@ export function Overview() {
             <div className="card flush">
               <div className="card-h" style={{ padding: '18px 20px 0' }}>
                 <h2>Recent activity</h2>
-                <button className="btn ghost sm" onClick={() => nav.go('money')}>
-                  View all <ArrowRight size={13} />
-                </button>
+                <Corner label="All transactions" onClick={() => nav.go('money')} />
               </div>
               <div className="list">
                 {recent.map((a) => (
@@ -278,9 +279,7 @@ export function Overview() {
                 <div className="card">
                   <div className="card-h">
                     <h2>Accounts &amp; cash</h2>
-                    <button className="btn ghost sm" onClick={() => nav.go('accounts')}>
-                      All <ArrowRight size={13} />
-                    </button>
+                    <Corner label="All accounts" onClick={() => nav.go('accounts')} />
                   </div>
                   <div className="stack" style={{ gap: 9 }}>
                     {activeAccounts(data).map((a) => (
@@ -302,9 +301,7 @@ export function Overview() {
                 <div className="card">
                   <div className="card-h">
                     <h2>Due soon</h2>
-                    <button className="btn ghost sm" onClick={() => nav.go('bills')}>
-                      All bills <ArrowRight size={13} />
-                    </button>
+                    <Corner label="All bills" onClick={() => nav.go('bills')} />
                   </div>
                   <div className="stack" style={{ gap: 10 }}>
                     {dueBills.map(({ bill, date }) => (
@@ -351,9 +348,7 @@ export function Overview() {
               <div className="card">
                 <div className="card-h">
                   <h2>Active projects</h2>
-                  <button className="btn ghost sm" onClick={() => nav.go('projects')}>
-                    All <ArrowRight size={13} />
-                  </button>
+                  <Corner label="All projects" onClick={() => nav.go('projects')} />
                 </div>
                 {active.length === 0 && <p className="muted" style={{ margin: 0 }}>No active projects.</p>}
                 <div className="stack" style={{ gap: 14 }}>

@@ -61,6 +61,25 @@ describe('app smoke test', () => {
     expect(container.textContent).toContain('Cash flow');
   });
 
+  it('shows tinted summary tiles with trends, and corner links to each page', async () => {
+    const tiles = container.querySelectorAll('.page .kpi');
+    expect(tiles.length).toBe(4);
+    expect(tiles[0].querySelector('.kpi-spark svg')).toBeTruthy();
+    await click(container.querySelector('.corner[aria-label="All accounts"]'));
+    expect(container.querySelector('.top h1')?.textContent).toBe('Accounts & cash');
+    expect(container.querySelectorAll('.page .kpi').length).toBe(4);
+    await click(navButton('Overview'));
+  });
+
+  it('the add button in the phone tab bar opens what fits the page', async () => {
+    await click(container.querySelector('.mobile-nav .mobile-add'));
+    expect(document.querySelector('.modal #tx-form')).toBeTruthy();
+    await closeModal();
+    await click(navButton('Passwords'));
+    expect(container.querySelector('.mobile-nav .mobile-add')?.getAttribute('aria-label')).toBe('New login');
+    await click(navButton('Overview'));
+  });
+
   it.each([
     ['Transactions', 'Money in'],
     ['Accounts & cash', 'Cash in hand'],

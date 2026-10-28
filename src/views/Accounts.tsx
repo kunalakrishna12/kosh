@@ -60,22 +60,22 @@ export function Accounts() {
   return (
     <>
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-violet">
           <div className="stat-l">Personal, banks &amp; cash</div>
           <div className="stat-v num">{money.compact(total('personal'))}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">{company}, banks &amp; cash</div>
           <div className="stat-v num">{money.compact(total('company'))}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-green">
           <div className="stat-l">
             <Banknote size={14} /> Cash in hand
           </div>
           <div className="stat-v num">{money.compact(cashInHand)}</div>
           <div className="stat-d">Count it now and then, and use “Update balance”.</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-rose">
           <div className="stat-l">
             <CreditCard size={14} /> Owed on cards
           </div>

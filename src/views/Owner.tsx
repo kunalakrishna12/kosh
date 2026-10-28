@@ -86,7 +86,7 @@ export function Owner() {
       </div>
 
       <div className="grid g-4 mt">
-        <div className="card" style={{ borderColor: b.owedToYou > 0 ? 'color-mix(in srgb, var(--gold) 35%, transparent)' : undefined }}>
+        <div className="card kpi t-gold" style={{ borderColor: b.owedToYou > 0 ? 'color-mix(in srgb, var(--gold) 35%, transparent)' : undefined }}>
           <div className="stat-l">{company} owes you</div>
           <div className="stat-v num" style={{ color: b.owedToYou > 0 ? 'var(--gold)' : undefined }}>
             {money.full(b.owedToYou)}
@@ -95,17 +95,17 @@ export function Owner() {
             loans {money.compact(sums.loan)} + bills you paid {money.compact(sums.paidPersonally)} − paid back {money.compact(sums.repayment + sums.reimbursement)}
           </div>
         </div>
-        <div className="card">
+        <div className="card kpi t-violet">
           <div className="stat-l">Capital invested</div>
           <div className="stat-v num">{money.full(sums.capital)}</div>
           <div className="stat-d">equity, not paid back</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">Drawn this year</div>
           <div className="stat-v num">{money.full(b.drawnThisYear)}</div>
           <div className="stat-d">salary and dividends</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-sky">
           <div className="stat-l">Bills you paid for {company}</div>
           <div className="stat-v num">{money.full(sums.paidPersonally)}</div>
           <div className="stat-d">reimbursed {money.compact(sums.reimbursement)}</div>

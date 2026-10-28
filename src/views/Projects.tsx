@@ -65,19 +65,19 @@ export function Projects() {
   return (
     <>
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-sky">
           <div className="stat-l">Total contracted</div>
           <div className="stat-v num">{money.compact(totals.contract)}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-green">
           <div className="stat-l">Collected</div>
           <div className="stat-v num up">{money.compact(totals.received)}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-gold">
           <div className="stat-l">Still to collect</div>
           <div className="stat-v num">{money.compact(totals.outstanding)}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-teal">
           <div className="stat-l">Project profit so far</div>
           <div className={`stat-v num ${totals.received - totals.spent >= 0 ? 'up' : 'down'}`}>{money.compact(totals.received - totals.spent)}</div>
           <div className="stat-d">margin {pct(totals.received ? (totals.received - totals.spent) / totals.received : null)}</div>

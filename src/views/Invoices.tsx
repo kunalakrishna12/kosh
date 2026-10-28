@@ -102,22 +102,22 @@ export function Invoices() {
         </div>
       )}
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-gold">
           <div className="stat-l">Waiting to be paid</div>
           <div className="stat-v num">{money.compact(stats.outstanding)}</div>
           <div className="stat-d">across {rows.filter((r) => r.state === 'due' || r.state === 'overdue').length} invoices</div>
         </div>
-        <div className="card" style={{ borderColor: stats.overdueCount ? 'color-mix(in srgb, var(--expense) 40%, transparent)' : undefined }}>
+        <div className="card kpi t-rose" style={{ borderColor: stats.overdueCount ? 'color-mix(in srgb, var(--expense) 40%, transparent)' : undefined }}>
           <div className="stat-l">Overdue</div>
           <div className={`stat-v num ${stats.overdueCount ? 'down' : ''}`}>{stats.overdueCount ? money.compact(stats.overdue) : 'None'}</div>
           <div className="stat-d">{stats.overdueCount ? `${stats.overdueCount} to chase` : 'Everyone has paid on time'}</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-green">
           <div className="stat-l">Paid in {stats.fyLabel}</div>
           <div className="stat-v num up">{money.compact(stats.paidFy)}</div>
           <div className="stat-d">through invoices</div>
         </div>
-        <div className="card">
+        <div className="card kpi t-sky">
           <div className="stat-l">Average time to get paid</div>
           <div className="stat-v num">{stats.avgDays === null ? '—' : `${stats.avgDays} days`}</div>
           <div className="stat-d">from invoice date</div>

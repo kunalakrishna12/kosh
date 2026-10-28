@@ -182,27 +182,27 @@ export function Reports() {
       </div>
 
       <div className="grid g-4">
-        <div className="card">
+        <div className="card kpi t-green">
           <div className="stat-l">Income</div>
           <div className="stat-v num">{money.compact(s.totalIncome)}</div>
           <div className="stat-d">
             <Change now={s.totalIncome} before={prev.totalIncome} /> vs previous
           </div>
         </div>
-        <div className="card">
+        <div className="card kpi t-rose">
           <div className="stat-l">Expenses</div>
           <div className="stat-v num">{money.compact(s.totalExpense)}</div>
           <div className="stat-d">
             <Change now={s.totalExpense} before={prev.totalExpense} invert /> vs previous
           </div>
         </div>
-        <div className="card">
+        <div className="card kpi t-gold">
           <div className="stat-l">{s.net >= 0 ? 'Net profit' : 'Net loss'}</div>
           <div className={`stat-v num ${s.net >= 0 ? 'up' : 'down'}`}>{money.compact(s.net)}</div>
           <div className="stat-d">{s.margin === null ? '—' : `${Math.round(s.margin * 100)}% margin`}</div>
         </div>
         {book === 'company' ? (
-          <div className="card">
+          <div className="card kpi t-sky">
             <div className="stat-l">{tax.net >= 0 ? 'GST payable' : 'GST credit'}</div>
             <div className="stat-v num">{money.compact(Math.abs(tax.net))}</div>
             <div className="stat-d">
@@ -210,7 +210,7 @@ export function Reports() {
             </div>
           </div>
         ) : (
-          <div className="card">
+          <div className="card kpi t-violet">
             <div className="stat-l">Savings rate</div>
             <div className="stat-v num">{s.margin === null ? '—' : `${Math.round(s.margin * 100)}%`}</div>
             <div className="stat-d">of income kept</div>
