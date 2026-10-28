@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Banknote, Building2, CalendarClock, Check, Copy, CreditCard, Eye, EyeOff, Landmark, Pencil, PiggyBank, Plus, Scale, Smartphone, Trash2, TrendingUp, Zap } from 'lucide-react';
+import { Archive, ArrowLeftRight, Banknote, Building2, CalendarClock, Check, Copy, CreditCard, Eye, EyeOff, Landmark, Pencil, PiggyBank, Plus, Scale, Smartphone, Trash2, TrendingUp, Wifi, Zap } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Sparkline } from '../components/charts';
 import { BookLabel } from '../components/forms';
@@ -160,38 +160,46 @@ function BookSection({
   );
 }
 
+/** Account kinds that get a chip on their card face, like the real card or passbook would. */
+const HAS_CHIP: Account['kind'][] = ['card', 'savings', 'current', 'deposit'];
+
 function AccountCard({ a, balance, onOpen }: { a: Account; balance: number; onOpen: () => void }) {
   const { data, money } = useVault();
   const Icon = ACCOUNT_ICON[a.kind];
   const history = useMemo(() => balanceHistory(data, a.id), [data, a.id]);
+  const holder = a.holder || (a.book === 'company' ? data.settings.companyName : data.settings.ownerName);
   return (
     <div className={`card acct-card ${a.archived ? 'archived' : ''}`} role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === 'Enter' && onOpen()}>
-      <div className="acct-stripe" style={{ background: a.color }} />
-      <div className="row between">
-        <div className="row" style={{ gap: 10, minWidth: 0 }}>
-          <div className="acct-ico" style={{ background: `color-mix(in srgb, ${a.color} 16%, transparent)`, color: a.color }}>
-            <Icon size={17} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div className="tx-t">{a.name}</div>
-            <div className="tx-s">
-              {a.bank || ACCOUNT_KIND_LABEL[a.kind]}
-              {a.number && ` · ${masked(a.number)}`}
-            </div>
-          </div>
+      <div className="acct-face" style={{ '--c': a.color } as React.CSSProperties}>
+        <div className="row between">
+          <span className="tx-t">{a.name}</span>
+          {a.kind === 'card' ? <Wifi size={18} className="acct-nfc" /> : <Icon size={18} />}
         </div>
-        {a.archived && <span className="pill">Closed</span>}
+        {HAS_CHIP.includes(a.kind) ? <span className="acct-chip" aria-hidden /> : <span className="acct-chip plain"><Icon size={16} /></span>}
+        {/* Cash has no number to show; a wallet shows its UPI ID instead. */}
+        <div className={`acct-num ${a.number ? 'num' : 'quiet'}`}>{a.number ? `•••• ${a.number.slice(-4)}` : a.upi}</div>
+        <div className="row between acct-face-foot">
+          <span className="acct-holder">{holder}</span>
+          <span className="acct-brand">{a.bank || 'Kosh'}</span>
+        </div>
+        {a.archived && (
+          <div className="acct-closed">
+            <Archive size={20} /> Closed
+          </div>
+        )}
       </div>
-      <div className={`stat-v num ${balance < 0 ? 'down' : ''}`} style={{ fontSize: 24, marginTop: 14 }}>
-        {money.full(balance)}
-      </div>
-      {a.kind === 'investment' ? (
-        <InvestedLine accountId={a.id} />
-      ) : (
-        <div className="stat-d">{a.kind === 'card' ? (balance < 0 ? 'owed on the card' : 'in credit') : ACCOUNT_KIND_LABEL[a.kind]}</div>
-      )}
-      <div style={{ marginTop: 10 }}>
-        <Sparkline values={history} color={a.color} height={30} />
+      <div className="acct-foot">
+        <div style={{ minWidth: 0 }}>
+          <div className={`stat-v num ${balance < 0 ? 'down' : ''}`}>{money.full(balance)}</div>
+          {a.kind === 'investment' ? (
+            <InvestedLine accountId={a.id} />
+          ) : (
+            <div className="stat-d">{a.kind === 'card' ? (balance < 0 ? 'owed on the card' : 'in credit') : ACCOUNT_KIND_LABEL[a.kind]}</div>
+          )}
+        </div>
+        <div className="acct-spark">
+          <Sparkline values={history} color={a.color} height={30} />
+        </div>
       </div>
     </div>
   );

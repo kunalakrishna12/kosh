@@ -2506,18 +2506,23 @@ input[type='checkbox']:focus-visible {
 /* Accounts */
 .acct-card {
   position: relative;
-  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  padding: 10px;
   cursor: pointer;
-  transition: transform 0.2s var(--ease), border-color 0.2s;
+  transition: transform 0.25s var(--ease), border-color 0.2s, box-shadow 0.25s;
 }
 .acct-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: var(--line-2);
 }
-.acct-card.archived {
-  opacity: 0.55;
+.acct-card.archived .acct-face > :not(.acct-closed) {
+  filter: blur(3px) grayscale(1);
+  opacity: 0.5;
 }
 .acct-card.unassigned {
+  display: block;
+  padding: 20px;
   cursor: default;
   border-style: dashed;
   background: transparent;
@@ -2526,10 +2531,137 @@ input[type='checkbox']:focus-visible {
 .acct-card.unassigned:hover {
   transform: none;
 }
-.acct-stripe {
+
+/* The account drawn as a card: its colour, a chip, the last four digits, holder and bank. */
+.acct-face {
+  --c: var(--gold);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  aspect-ratio: 1.62;
+  padding: 16px 18px 14px;
+  border-radius: 14px;
+  color: #fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.22), transparent 55%),
+    radial-gradient(80% 70% at 0% 110%, rgba(0, 0, 0, 0.28), transparent 70%),
+    linear-gradient(140deg, color-mix(in srgb, var(--c) 88%, #fff), color-mix(in srgb, var(--c) 72%, #000));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 14px 28px -16px color-mix(in srgb, var(--c) 80%, #000);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+}
+.acct-face::after {
+  /* faint guilloché rings, like the print on a real card */
+  content: '';
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
+  inset: -40% -30% auto auto;
+  width: 75%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 18px rgba(255, 255, 255, 0.035), 0 0 0 36px rgba(255, 255, 255, 0.025);
+  pointer-events: none;
+}
+.acct-face .tx-t {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.acct-face svg {
+  flex: none;
+  opacity: 0.85;
+}
+.acct-nfc {
+  transform: rotate(90deg);
+}
+.acct-chip {
+  width: 38px;
+  height: 28px;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, transparent 32%, rgba(120, 85, 20, 0.35) 33%, transparent 35%, transparent 64%, rgba(120, 85, 20, 0.35) 65%, transparent 67%),
+    linear-gradient(0deg, transparent 46%, rgba(120, 85, 20, 0.35) 47%, transparent 53%),
+    linear-gradient(135deg, #f6e1a6, #c9a24f);
+  box-shadow: inset 0 0 0 1px rgba(90, 60, 10, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.acct-chip.plain {
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.acct-num {
+  margin-top: auto;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acct-num.quiet {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+.acct-face-foot {
+  gap: 12px;
+  font-size: 12.5px;
+}
+.acct-holder {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.92;
+}
+.acct-brand {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.acct-closed {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  font-weight: 650;
+  color: var(--text);
+  text-shadow: none;
+  background: color-mix(in srgb, var(--surface-3) 55%, transparent);
+}
+.acct-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px 6px;
+}
+.acct-foot .stat-v {
+  font-size: 21px;
+  margin-top: 0;
+}
+.acct-foot .stat-d {
+  margin-top: 2px;
+}
+.acct-spark {
+  flex: none;
+  width: 96px;
 }
 .acct-ico {
   width: 36px;
